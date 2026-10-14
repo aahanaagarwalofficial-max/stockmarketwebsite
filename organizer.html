@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Trading Floor — Organizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F8; --panel:#FFFFFF; --panel2:#E3E9F3; --line:#C8D2E2;
+  --ink:#0A1630; --muted:#4E5D78; --blue:#1D5BFF; --cyan:#0089A8;
+  --up:#0A8F4A; --down:#D21F3C; --gold:#A87B00; --goldbg:#FFF3C4;
+  --chip:#DCE5F5;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#050B1A; --panel:#0B1630; --panel2:#0F1E40; --line:#1C2D55;
+    --ink:#EAF1FF; --muted:#8A9BC2; --blue:#3D7BFF; --cyan:#2FE0FF;
+    --up:#2BFF88; --down:#FF4D6A; --gold:#F2C744; --goldbg:#2A2205;
+    --chip:#13254D; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#050B1A; --panel:#0B1630; --panel2:#0F1E40; --line:#1C2D55;
+  --ink:#EAF1FF; --muted:#8A9BC2; --blue:#3D7BFF; --cyan:#2FE0FF;
+  --up:#2BFF88; --down:#FF4D6A; --gold:#F2C744; --goldbg:#2A2205;
+  --chip:#13254D; color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+.disp{font-family:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;letter-spacing:.01em;line-height:.95}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 16px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:16px;padding:12px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand .disp{font-size:30px;font-weight:900}
+.brand small{color:var(--muted);font-size:14px}
+.phase{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--chip);font-weight:600;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.phase.open .dot{background:var(--up);box-shadow:0 0 10px var(--up)}
+.phase.closed .dot,.phase.revealed .dot{background:var(--down)}
+.clock{font-size:34px;font-weight:800;min-width:110px;text-align:right}
+.clock.warn{color:var(--down)}
+nav.tabs{display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--muted);white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--blue)}
+.ticker{overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel)}
+.ticker .track{display:inline-flex;gap:32px;padding:8px 0;white-space:nowrap;animation:tick 60s linear infinite}
+.ticker b{margin-right:6px}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--muted)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.ticker .track{animation:none}}
+main{padding:24px 0 64px}
+h2{margin:0 0 4px;font-size:44px;font-weight:900}
+.lead{color:var(--muted);margin:0 0 20px;max-width:70ch}
+.notice{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--blue);padding:14px 16px;border-radius:6px;margin-bottom:16px}
+.notice.bad{border-left-color:var(--down)} .notice.good{border-left-color:var(--up)}
+.teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:20px}
+.teams button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;text-align:left}
+.teams button[aria-pressed="true"]{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.teams small{display:block;color:var(--muted);font-size:13px}
+.desk{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+@media (max-width:880px){.desk{grid-template-columns:1fr}}
+.rows{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.nm{font-weight:600}
+.sec{color:var(--muted);font-size:13px}
+.rum{display:inline-block;margin-left:6px;font-size:12px;font-weight:700;color:var(--gold);background:var(--goldbg);border-radius:4px;padding:1px 6px;border:0}
+.rumtext{grid-column:1/-1;font-size:14px;color:var(--muted);background:var(--panel2);padding:8px 10px;border-radius:6px}
+.amt{display:flex;align-items:center;gap:4px}
+.amt button{width:36px;height:36px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font-weight:700}
+.amt button:disabled{opacity:.4;cursor:not-allowed}
+.amt input{width:110px;height:36px;text-align:right;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.amt input.err{border-color:var(--down)}
+@media (max-width:420px){.row{grid-template-columns:1fr}.amt input{flex:1;width:auto}}
+.summary{position:sticky;top:150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px}
+@media (max-width:880px){.summary{position:static}}
+.big{font-size:52px;font-weight:900}
+.summary dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:12px 0}
+.summary dt{color:var(--muted)} .summary dd{margin:0;font-weight:700;text-align:right}
+.btn{display:inline-block;border:0;border-radius:6px;padding:12px 18px;font-weight:700;background:var(--blue);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.red{background:var(--down);color:#fff}
+.btn.green{background:var(--up);color:#04140A}
+.btn.wide{width:100%}
+.errs{color:var(--down);font-size:14px;margin:8px 0 0;padding-left:18px}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.pct{font-size:40px;font-weight:900;margin-top:4px}
+.barbg{height:6px;background:var(--panel2);border-radius:3px;margin-top:8px;overflow:hidden}
+.barfg{height:100%}
+.lb{display:flex;flex-direction:column;gap:8px}
+.lbrow{display:grid;grid-template-columns:72px 1fr auto;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 18px}
+.rk{font-size:56px;font-weight:900;color:var(--muted)}
+.tn{font-size:30px;font-weight:800}
+.val{font-size:40px;font-weight:900;text-align:right}
+.sub{font-size:15px;font-weight:600}
+.lbrow.first{background:var(--goldbg);border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.lbrow.first .rk,.lbrow.first .tn{color:var(--gold)}
+.lbrow.hidden{opacity:.55}
+.lbrow.pop{animation:pop .7s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:600px){.lbrow{grid-template-columns:48px 1fr}.rk{font-size:40px}.val{grid-column:1/-1;text-align:left;font-size:32px}.tn{font-size:24px}}
+@media (prefers-reduced-motion: reduce){.lbrow.pop{animation:none}}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50;width:100%;height:100%}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+@media (max-width:380px){.pcards{grid-template-columns:1fr}}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+.pcard h3{margin:0 0 8px;font-size:28px;font-weight:800}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600}
+tfoot td{font-weight:700;border-bottom:0}
+.admin{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+.card h3{margin:0 0 10px;font-size:26px;font-weight:800}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.field label{font-size:13px;color:var(--muted)}
+.field input,.retrow input{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px 10px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.retrow{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;margin-bottom:4px;font-size:14px}
+.retrow input{text-align:right;padding:6px 8px}
+.steps{display:flex;gap:6px;margin-bottom:12px}
+.steps span{flex:1;text-align:center;padding:6px;border-radius:6px;background:var(--panel2);font-size:13px;color:var(--muted);font-weight:600}
+.steps span.on{background:var(--blue);color:#fff}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.login{max-width:420px;margin:40px auto}
+.login select,.login input{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:10px 12px;width:100%}
+.who{font-size:14px;color:var(--muted)}
+.linkbtn{background:none;border:0;color:var(--blue);font-weight:600;padding:4px 0;text-decoration:underline}
+textarea{font:inherit;color:inherit;width:100%;min-height:90px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px 10px}
+.stat{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.stat div{background:var(--panel2);border-radius:6px;padding:8px 10px;font-size:14px}
+.stat b{display:block;font-size:22px}
+
+.codein{font-size:22px;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="bar">
+    <div class="brand"><span class="disp">Trading Floor</span><small>Organizer</small></div>
+    <span class="who" id="who"></span>
+    <div class="phase" id="phase"><span class="dot"></span><span id="phaseTxt"></span></div>
+    <div class="clock disp" id="clock"></div>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+</div></header>
+<main class="wrap" id="app"><p style="margin-top:24px">Loading…</p></main>
+<canvas id="confetti"></canvas>
+<script>
+/* If the app hasn't started after a few seconds, explain why instead of showing "Loading…" forever. */
+(function(){
+  function show(title,body){var a=document.getElementById("app");if(!a||window.__started)return;
+    a.innerHTML='<div class="notice bad" style="margin-top:24px"><b>'+title+'</b><br>'+body+'</div>';}
+  if(location.protocol==="file:"){
+    window.addEventListener("DOMContentLoaded",function(){show("This page can't run from a file on your computer.","You opened it by double-clicking. Open the GitHub Pages link instead, for example https://your-username.github.io/stock-market-simulation/");});
+    return;
+  }
+  setTimeout(async function(){
+    if(window.__started)return;
+    try{var r=await fetch("./firebase-config.js",{cache:"no-store"});
+      if(!r.ok){show("firebase-config.js is missing.","Upload firebase-config.js to the same place as this page on GitHub. The file name must match exactly, all lowercase.");return;}}
+    catch(e){show("Couldn't reach the website files.","Check your internet connection and reload.");return;}
+    try{await import("./firebase-config.js?check="+Date.now());}
+    catch(e){show("firebase-config.js has a typing mistake.","Check the quotes, commas and brackets in that file. Browser says: "+String(e.message||e).replace(/</g,"&lt;"));return;}
+    try{await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");}
+    catch(e){show("Couldn't reach Firebase.","Something is blocking www.gstatic.com: an ad blocker, a school or office WiFi filter, or no internet. Try mobile data or turn off the ad blocker for this site, then reload.");return;}
+    show("The page didn't start.","Reload once. If it still doesn't load, press F12, open the Console tab and send a screenshot of the red error.");
+  },7000);
+})();
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, collection, onSnapshot, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig, EMAIL_DOMAIN } from "./firebase-config.js";
+
+const STOCKS=[
+ ["RELIANCE","Reliance Industries","Energy & Conglomerate"],["INFY","Infosys","IT Services"],["SBIN","State Bank of India","PSU Banking"],
+ ["SUNPHARMA","Sun Pharma","Pharmaceuticals"],["LT","Larsen & Toubro","Infrastructure"],["MARUTI","Maruti Suzuki","Automobiles"],
+ ["ETERNAL","Eternal (Zomato)","Consumer Internet"],["BHARTIARTL","Bharti Airtel","Telecom"],["ITC","ITC","FMCG & Conglomerate"],
+ ["INDIGO","InterGlobe Aviation (IndiGo)","Aviation"],["HDFCBANK","HDFC Bank","Banking"],["ICICIBANK","ICICI Bank","Banking"],
+ ["TCS","Tata Consultancy Services","IT Services"],["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],
+ ["TITAN","Titan Company","Consumer Durables"],["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],
+ ["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"],
+].map(([code,name,sector])=>({code,name,sector}));
+const CAPITAL=100000, STEP=1000;
+const TEAM_IDS=["team1","team2","team3","team4","team5","team6","team7","team8"];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>(n<0?"−₹":"₹")+Math.abs(Math.round(n)).toLocaleString("en-IN");
+const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.abs(n).toFixed(0))+"%";
+const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
+const cls=n=>n>0?"up":n<0?"down":"flat";
+if(firebaseConfig.apiKey.startsWith("PASTE")){
+  document.querySelector("#app").innerHTML=`<div class="notice bad" style="margin-top:24px"><b>Setup isn't finished.</b> Paste your Firebase config into firebase-config.js, then reload.</div>`;
+  throw new Error("firebase-config.js not filled in");
+}
+const fb=initializeApp(firebaseConfig), auth=getAuth(fb), db=getFirestore(fb);
+let G={phase:"setup",teamNames:{},timerEnd:null,timerMin:10}, RES={rows:[],total:8};
+const teamName=id=>(G.teamNames&&G.teamNames[id])||("Team "+id.replace("team",""));
+const PHASE={setup:"Pre-market",open:"Market open",closed:"Market closed",revealed:"Results live"};
+function tickClock(){const el=$("#clock");if(!G.timerEnd||G.phase!=="open"){el.textContent="";return}
+  const ms=Math.max(0,G.timerEnd-Date.now()),m=Math.floor(ms/60000),s=Math.floor(ms%60000/1000);
+  el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");el.className="clock disp"+(ms<60000?" warn":"")}
+setInterval(tickClock,500);
+let pendingRender=false;
+function safeRender(){const a=document.activeElement;if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA")&&$("#app").contains(a)&&a.id!=="code"){pendingRender=true;return}render()}
+document.addEventListener("focusout",()=>{if(pendingRender){pendingRender=false;setTimeout(render,0)}});
+function toast(msg){const n=document.createElement("div");n.textContent=msg;n.setAttribute("role","status");
+  n.style.cssText="position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;z-index:60;font-weight:600;max-width:90vw";
+  document.body.appendChild(n);setTimeout(()=>n.remove(),2800)}
+function confetti(){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const c=$("#confetti"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;const cols=["#F2C744","#2BFF88","#2FE0FF","#3D7BFF","#FFFFFF"];
+  const P=Array.from({length:180},()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height*.5,r:4+Math.random()*6,vy:2+Math.random()*4,vx:-1.5+Math.random()*3,a:Math.random()*6,c:cols[Math.floor(Math.random()*cols.length)]}));
+  let f=0;(function loop(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.y+=p.vy;p.x+=p.vx;p.a+=.1;x.fillStyle=p.c;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});if(++f<240)requestAnimationFrame(loop);else x.clearRect(0,0,c.width,c.height)})()}
+function vLoginBox(title,hint){
+  return `<div class="login card"><h2 class="disp">${title}</h2><p class="sec">${hint}</p>
+  <div class="field"><label for="code">Access code</label><input id="code" class="codein" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+  <button class="btn wide" data-login>Enter</button><p id="lerr" class="errs" style="list-style:none;padding:0" role="alert"></p></div>`;
+}
+let lastShown=0;
+function leaderRows(rows,total,opts={}){
+  rows=[...rows].sort((a,b)=>a.rank-b.rank||b.final-a.final);const hidden=total-rows.length;
+  const pop=rows.length>lastShown;lastShown=rows.length;if(pop&&hidden===0&&rows.length)setTimeout(confetti,200);
+  const H=Array.from({length:hidden},()=>`<div class="lbrow hidden"><div class="rk disp">?</div><div><div class="tn disp">Hidden</div></div><div class="val disp">₹ —</div></div>`).join("");
+  const R=rows.map((x,k)=>`<div class="lbrow ${x.rank===1?"first":""} ${pop&&k===0?"pop":""}"><div class="rk disp">${x.rank}</div><div><div class="tn disp">${esc(x.name)}</div>${opts.detail?`<div class="sub ${cls(x.pl)}">${x.pl>=0?"+":""}${inr(x.pl)} (${pct2(x.ret)})${x.counted?"":" · no trades locked"}</div>`:""}</div><div class="val disp">${inr(x.final)}</div></div>`).join("");
+  return `<div class="lb">${H}${R}</div>`;
+}
+
+let isOrg=false, tab="control", unsub=[], ALL={}, SECRET={}, busy=false;
+onAuthStateChanged(auth,async u=>{
+  unsub.forEach(f=>f());unsub=[];isOrg=false;
+  if(u){if((u.email||"").split("@")[0]==="organizer"){isOrg=true;listen()}else{await signOut(auth);return}}
+  render();
+});
+function listen(){
+  unsub.push(onSnapshot(doc(db,"game/state"),s=>{G=Object.assign({phase:"setup",teamNames:{},timerEnd:null,timerMin:10},s.data()||{});safeRender()},()=>{}));
+  unsub.push(onSnapshot(doc(db,"public/results"),s=>{RES=Object.assign({rows:[],total:8},s.data()||{});safeRender()},()=>{}));
+  unsub.push(onSnapshot(collection(db,"portfolios"),q=>{ALL={};q.forEach(d=>ALL[d.id]=d.data());safeRender()},()=>{}));
+  unsub.push(onSnapshot(doc(db,"secret/returns"),s=>{SECRET=(s.data()||{}).returns||{};safeRender()},()=>{}));
+}
+const haveRet=()=>STOCKS.every(s=>SECRET[s.code]!==undefined);
+function calc(p){p=p||{};const sub=!!p.submitted;let invested=0,value=0;const rows=[];
+  for(const s of STOCKS){const a=Number((p.alloc||{})[s.code]||0);if(!a)continue;const r=Number(SECRET[s.code]||0),v=a*(1+r/100);rows.push({s,a,r,v});if(sub){invested+=a;value+=v}}
+  const cash=CAPITAL-invested,final=cash+value;return {rows,cash,final,pl:final-CAPITAL,ret:(final-CAPITAL)/CAPITAL*100,counted:sub}}
+function ranking(){const list=TEAM_IDS.map(id=>({id,name:teamName(id),at:(ALL[id]||{}).submittedAt||9e15,...calc(ALL[id])}));
+  list.sort((a,b)=>Math.round(b.final)-Math.round(a.final)||a.at-b.at);let rank=0,prev=null;
+  list.forEach((x,k)=>{const f=Math.round(x.final);if(prev===null||f!==prev)rank=k+1;x.rank=rank;prev=f});
+  return list.map(x=>({name:x.name,rank:x.rank,final:Math.round(x.final),pl:Math.round(x.pl),ret:x.ret,counted:x.counted}))}
+async function orgSet(path,data){try{await setDoc(doc(db,path),data,{merge:true})}catch(e){toast("Couldn't save: "+(e.code||"error"))}}
+function render(){
+  window.__started=true;
+  $("#phase").className="phase "+G.phase;$("#phaseTxt").textContent=isOrg?PHASE[G.phase]:"";
+  $("#who").innerHTML=isOrg?`Organizer · <button class="linkbtn" data-logout>Log out</button>`:"";
+  $("#tabs").innerHTML=isOrg?[["control","Control room"],["all","All portfolios"],["moves","Stock moves"],["leader","Leaderboard"]].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}</button>`).join(""):"";
+  $("#app").innerHTML=!isOrg?vLoginBox("Organizer login","Enter the organizer access code."):({control:vControl,all:vAll,moves:vMoves,leader:vLeader}[tab])();
+  tickClock();
+}
+function vControl(){
+  const steps=["setup","open","closed","revealed"].map((p,i)=>`<span class="${G.phase===p?"on":""}">${["Pre-market","Trading","Closed","Results"][i]}</span>`).join("");
+  const locked=TEAM_IDS.filter(id=>(ALL[id]||{}).submitted).length, shown=(RES.rows||[]).length;
+  return `<h2 class="disp">Control room</h2><p class="lead">Only the organizer code opens this page. Teams never see stock moves, other teams' portfolios, or anything here.</p><div class="steps">${steps}</div>
+  <div class="admin">
+   <div class="card"><h3 class="disp">Run the round</h3><p>${locked} of 8 teams have locked trades.</p>
+    <div class="btns">
+     ${G.phase==="setup"?`<button class="btn green" data-phase="open">Open the market</button>`:""}
+     ${G.phase==="open"?`<button class="btn red" data-phase="closed">Close the market</button>`:""}
+     ${G.phase==="closed"?`<button class="btn" data-reveal ${haveRet()?"":"disabled"}>Reveal leaderboard</button>${haveRet()?"":`<span class="sec">Enter all 20 returns first.</span>`}`:""}
+     ${G.phase==="revealed"?`<button class="btn" data-next ${shown>=8?"disabled":""}>Reveal next position</button><button class="btn ghost" data-all ${shown>=8?"disabled":""}>Reveal all</button>`:""}
+    </div>
+    <h3 class="disp" style="margin-top:18px">Trading timer</h3>
+    <div class="field"><label for="tmin">Minutes</label><input id="tmin" type="number" min="1" max="120" value="${G.timerMin||10}"></div>
+    <div class="btns"><button class="btn" data-tstart>Start timer</button><button class="btn ghost" data-tstop>Stop timer</button></div></div>
+   <div class="card"><h3 class="disp">Teams</h3>
+    ${TEAM_IDS.map(id=>{const p=ALL[id]||{};return `<div class="field"><label for="tn-${id}">Team ${id.replace("team","")} · ${p.submitted?"locked":"not locked"}</label><div style="display:flex;gap:6px"><input id="tn-${id}" data-tname="${id}" value="${esc(teamName(id))}" maxlength="24" style="flex:1">${p.submitted&&G.phase==="open"?`<button class="btn ghost" data-unlockteam="${id}">Unlock</button>`:""}</div></div>`}).join("")}</div>
+   <div class="card"><h3 class="disp">Stock returns (%)</h3>
+    <p class="sec" style="margin-top:0">Never shown to teams. Paste the 20 numbers from the workbook's return column (same order), or type them one by one.</p>
+    ${G.phase==="revealed"?"":`<div class="field"><label for="paste">Paste returns</label><textarea id="paste" placeholder="-4&#10;5&#10;-6&#10;..."></textarea></div><div class="btns" style="margin-bottom:10px"><button class="btn ghost" data-paste>Use pasted numbers</button></div>`}
+    ${STOCKS.map(s=>`<div class="retrow"><label for="r-${s.code}">${esc(s.name)}</label><input id="r-${s.code}" data-ret="${s.code}" inputmode="decimal" value="${SECRET[s.code]??""}" ${G.phase==="revealed"?"disabled":""}></div>`).join("")}</div>
+   <div class="card"><h3 class="disp">Start over</h3><p class="sec">Clears every team's trades, the timer and the leaderboard. Team names stay.</p><button class="btn red" data-reset>Reset round</button></div>
+  </div>`;
+}
+function vAll(){const show=haveRet();
+  return `<h2 class="disp">All portfolios</h2><p class="lead">${show?"Values use the returns you've entered, even before reveal.":"Enter returns in the Control room to see values."}</p>
+  <div class="pcards">${TEAM_IDS.map(id=>{const p=ALL[id]||{},c=calc(p);
+    const body=c.rows.length?c.rows.map(x=>`<tr><td>${esc(x.s.name)}${c.counted?"":` <span class="sec">(draft)</span>`}</td><td>${inr(x.a)}</td><td class="${show?cls(x.r):"flat"}">${show?pct(x.r):"—"}</td><td>${show&&c.counted?inr(x.v):"—"}</td></tr>`).join(""):`<tr><td colspan="4" style="color:var(--muted)">No stocks.</td></tr>`;
+    return `<div class="pcard"><h3 class="disp">${esc(teamName(id))}</h3><p class="sec" style="margin:0 0 6px">${p.submitted?"Locked":"Not locked (counts as all cash at close)"}</p><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th><th>Move</th><th>Value</th></tr></thead><tbody>${body}<tr><td>Cash</td><td>${inr(c.cash)}</td><td class="flat">0%</td><td>${inr(c.cash)}</td></tr></tbody>
+    <tfoot><tr><td>Portfolio</td><td>${inr(CAPITAL)}</td><td class="${show?cls(c.ret):"flat"}">${show?pct2(c.ret):""}</td><td>${show?inr(c.final):"—"}</td></tr></tfoot></table></div></div>`}).join("")}</div>`;
+}
+function vMoves(){if(!haveRet())return `<h2 class="disp">Stock moves</h2><p class="lead">Enter all 20 returns in the Control room first.</p>`;
+  const list=[...STOCKS].sort((a,b)=>SECRET[b.code]-SECRET[a.code]),max=Math.max(1,...STOCKS.map(s=>Math.abs(SECRET[s.code])));
+  return `<h2 class="disp">Stock moves</h2><p class="lead">Organizer only. Teams never see this.</p><div class="board">${list.map(s=>{const r=SECRET[s.code];
+    return `<div class="tile"><b>${esc(s.name)}</b><div class="sec">${esc(s.sector)}</div><div class="pct disp ${cls(r)}">${pct(r)}</div><div class="barbg"><div class="barfg" style="width:${Math.abs(r)/max*100}%;background:${r>=0?"var(--up)":"var(--down)"}"></div></div></div>`}).join("")}</div>`}
+function vLeader(){
+  if(G.phase==="revealed")return `<h2 class="disp">Leaderboard</h2><p class="lead">What teams see right now. ${RES.rows.length<8?`${8-RES.rows.length} still hidden.`:"All positions revealed."}</p>`+leaderRows(RES.rows,RES.total,{detail:false});
+  if(!haveRet())return `<h2 class="disp">Leaderboard</h2><p class="lead">Enter returns to preview the ranking.</p>`;
+  lastShown=99;return `<h2 class="disp">Leaderboard preview</h2><p class="lead">Only you can see this. Teams see nothing until you reveal.</p>`+leaderRows(ranking(),8,{detail:true});
+}
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b||b.disabled)return;const d=b.dataset;
+  if("login" in d){if(busy)return;const code=($("#code").value||"").trim().toUpperCase();
+    if(!/^ORG-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)){$("#lerr").textContent="Code not recognised.";return}
+    busy=true;b.disabled=true;try{await signInWithEmailAndPassword(auth,"organizer@"+EMAIL_DOMAIN,code)}catch(err){$("#lerr").textContent=err.code==="auth/too-many-requests"?"Too many tries. Wait a minute.":"Code not recognised.";b.disabled=false}busy=false;return}
+  if("logout" in d){await signOut(auth);return}
+  if(d.tab){if(d.tab==="leader")lastShown=G.phase==="revealed"?(RES.rows||[]).length:0;tab=d.tab;render();return}
+  if(!isOrg)return;
+  if(d.phase){if(d.phase==="closed"&&!confirm("Close the market? Teams that haven't locked trades will hold all cash."))return;
+    await orgSet("game/state",{phase:d.phase,...(d.phase==="closed"?{timerEnd:null}:{})});return}
+  if("reveal" in d){if(!confirm("Show the leaderboard to teams? Positions are revealed one at a time from 8th place."))return;
+    await setDoc(doc(db,"public/results"),{rows:[],total:8});await orgSet("game/state",{phase:"revealed"});lastShown=0;tab="leader";render();return}
+  if("next" in d||"all" in d){const r=ranking().map(x=>({name:x.name,rank:x.rank,final:x.final}));const k=("all" in d)?8:Math.min(8,(RES.rows||[]).length+1);
+    await orgSet("public/results",{rows:r.slice(8-k)});tab="leader";render();return}
+  if("tstart" in d){const m=Math.max(1,Math.min(120,+$("#tmin").value||10));await orgSet("game/state",{timerMin:m,timerEnd:Date.now()+m*60000});return}
+  if("tstop" in d){await orgSet("game/state",{timerEnd:null});return}
+  if(d.unlockteam){await orgSet("portfolios/"+d.unlockteam,{submitted:false,submittedAt:null});return}
+  if("paste" in d){const nums=($("#paste").value.match(/-?\d+(\.\d+)?/g)||[]).map(Number);
+    if(nums.length!==20){toast("Found "+nums.length+" numbers. Paste exactly 20, in workbook order.");return}
+    const r={};STOCKS.forEach((s,i)=>r[s.code]=nums[i]);try{await setDoc(doc(db,"secret/returns"),{returns:r});toast("Returns saved.")}catch(err){toast("Couldn't save returns.")}return}
+  if("reset" in d){if(!confirm("Reset the whole round? This clears every team's trades and the leaderboard."))return;
+    const bt=writeBatch(db);TEAM_IDS.forEach(id=>bt.set(doc(db,"portfolios",id),{alloc:{},submitted:false,submittedAt:null}));
+    bt.set(doc(db,"public/results"),{rows:[],total:8});bt.set(doc(db,"game/state"),{phase:"setup",timerEnd:null},{merge:true});
+    try{await bt.commit();lastShown=0;toast("Round reset.")}catch(err){toast("Reset failed: "+(err.code||"error"))}return}
+});
+document.addEventListener("change",async e=>{const i=e.target,d=i.dataset;if(!isOrg)return;
+  if(d.tname){const names=Object.assign({},G.teamNames||{});names[d.tname]=i.value.trim()||("Team "+d.tname.replace("team",""));await orgSet("game/state",{teamNames:names});return}
+  if(d.ret){const v=i.value.trim(),r=Object.assign({},SECRET);if(v==="")delete r[d.ret];else{const n=Number(v);if(!Number.isFinite(n))return;r[d.ret]=n}
+    try{await setDoc(doc(db,"secret/returns"),{returns:r})}catch(err){toast("Couldn't save.")}}});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="code")$("[data-login]")?.click()});
+render();
+</script>
+</body>
+</html>
