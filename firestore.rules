@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    // Keep this domain the same as EMAIL_DOMAIN in firebase-config.js
+    function isOrg() { return signedIn() && request.auth.token.email == 'organizer@stocksim.example.com'; }
+    function isTeam(t) { return signedIn() && request.auth.token.email == t + '@stocksim.example.com'; }
+    function phase() { return get(/databases/$(database)/documents/game/state).data.phase; }
+
+    // Round status, timer, team names: everyone logged in can read, only organizer changes.
+    match /game/state {
+      allow read: if signedIn();
+      allow write: if isOrg();
+    }
+    // Revealed returns and leaderboard rows: published by organizer at reveal time.
+    match /public/results {
+      allow read: if signedIn();
+      allow write: if isOrg();
+    }
+    // Stock returns before reveal: organizer only.
+    match /secret/{doc} {
+      allow read, write: if isOrg();
+    }
+    // Each team's portfolio: only that team and the organizer can see it.
+    match /portfolios/{teamId} {
+      allow read: if isOrg() || isTeam(teamId);
+      allow write: if isOrg();
+      allow create, update: if isTeam(teamId)
+        && phase() == 'open'
+        && (resource == null || resource.data.submitted != true)
+        && request.resource.data.keys().hasOnly(['alloc', 'submitted', 'submittedAt'])
+        && request.resource.data.alloc is map;
+    }
+  }
+}
