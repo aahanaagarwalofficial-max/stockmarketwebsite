@@ -1,13 +1,10 @@
-// 1. Paste the config from Firebase console > Project settings > Your apps > Web app.
 export const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE",
-  appId: "PASTE"
+  apiKey: "AIzaSyASYwsxKNP_eEJz704xlebGz7OKHpXMP-U",
+  authDomain: "stockmarket-d6c0b.firebaseapp.com",
+  projectId: "stockmarket-d6c0b",
+  storageBucket: "stockmarket-d6c0b.firebasestorage.app",
+  messagingSenderId: "43382115773",
+  appId: "1:43382115773:web:e1215f59b919c1f97696d4"
 };
 
-// 2. Login emails are team1@<domain> ... team8@<domain> and organizer@<domain>.
-//    If you change this, change it in firestore.rules too.
 export const EMAIL_DOMAIN = "stocksim.example.com";
