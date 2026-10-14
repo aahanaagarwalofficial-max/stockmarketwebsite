@@ -210,10 +210,11 @@ const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.a
 const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
 const cls=n=>n>0?"up":n<0?"down":"flat";
 if(firebaseConfig.apiKey.startsWith("PASTE")){
+  window.__started=true;
   document.querySelector("#app").innerHTML=`<div class="notice bad" style="margin-top:24px"><b>Setup isn't finished.</b> Paste your Firebase config into firebase-config.js, then reload.</div>`;
   throw new Error("firebase-config.js not filled in");
 }
-const fb=initializeApp(firebaseConfig), auth=getAuth(fb), db=getFirestore(fb);
+const fb=initializeApp(firebaseConfig,"organizer"), auth=getAuth(fb), db=getFirestore(fb);
 let G={phase:"setup",teamNames:{},timerEnd:null,timerMin:10}, RES={rows:[],total:8};
 const teamName=id=>(G.teamNames&&G.teamNames[id])||("Team "+id.replace("team",""));
 const PHASE={setup:"Pre-market",open:"Market open",closed:"Market closed",revealed:"Results live"};
