@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trading Floor — Round 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F8; --panel:#FFFFFF; --panel2:#E3E9F3; --line:#C8D2E2;
+  --ink:#0A1630; --muted:#4E5D78; --blue:#1D5BFF; --cyan:#0089A8;
+  --up:#0A8F4A; --down:#D21F3C; --gold:#A87B00; --goldbg:#FFF3C4;
+  --chip:#DCE5F5;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#050B1A; --panel:#0B1630; --panel2:#0F1E40; --line:#1C2D55;
+    --ink:#EAF1FF; --muted:#8A9BC2; --blue:#3D7BFF; --cyan:#2FE0FF;
+    --up:#2BFF88; --down:#FF4D6A; --gold:#F2C744; --goldbg:#2A2205;
+    --chip:#13254D; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#050B1A; --panel:#0B1630; --panel2:#0F1E40; --line:#1C2D55;
+  --ink:#EAF1FF; --muted:#8A9BC2; --blue:#3D7BFF; --cyan:#2FE0FF;
+  --up:#2BFF88; --down:#FF4D6A; --gold:#F2C744; --goldbg:#2A2205;
+  --chip:#13254D; color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+.disp{font-family:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;letter-spacing:.01em;line-height:.95}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 16px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:16px;padding:12px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand .disp{font-size:30px;font-weight:900}
+.brand small{color:var(--muted);font-size:14px}
+.phase{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--chip);font-weight:600;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.phase.open .dot{background:var(--up);box-shadow:0 0 10px var(--up)}
+.phase.closed .dot,.phase.revealed .dot{background:var(--down)}
+.clock{font-size:34px;font-weight:800;min-width:110px;text-align:right}
+.clock.warn{color:var(--down)}
+nav.tabs{display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--muted);white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--blue)}
+.ticker{overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel)}
+.ticker .track{display:inline-flex;gap:32px;padding:8px 0;white-space:nowrap;animation:tick 60s linear infinite}
+.ticker b{margin-right:6px}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--muted)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.ticker .track{animation:none}}
+main{padding:24px 0 64px}
+h2{margin:0 0 4px;font-size:44px;font-weight:900}
+.lead{color:var(--muted);margin:0 0 20px;max-width:70ch}
+.notice{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--blue);padding:14px 16px;border-radius:6px;margin-bottom:16px}
+.notice.bad{border-left-color:var(--down)} .notice.good{border-left-color:var(--up)}
+.teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:20px}
+.teams button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;text-align:left}
+.teams button[aria-pressed="true"]{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.teams small{display:block;color:var(--muted);font-size:13px}
+.desk{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+@media (max-width:880px){.desk{grid-template-columns:1fr}}
+.rows{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.nm{font-weight:600}
+.sec{color:var(--muted);font-size:13px}
+.rum{display:inline-block;margin-left:6px;font-size:12px;font-weight:700;color:var(--gold);background:var(--goldbg);border-radius:4px;padding:1px 6px;border:0}
+.rumtext{grid-column:1/-1;font-size:14px;color:var(--muted);background:var(--panel2);padding:8px 10px;border-radius:6px}
+.amt{display:flex;align-items:center;gap:4px}
+.amt button{width:36px;height:36px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font-weight:700}
+.amt button:disabled{opacity:.4;cursor:not-allowed}
+.amt input{width:110px;height:36px;text-align:right;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.amt input.err{border-color:var(--down)}
+@media (max-width:420px){.row{grid-template-columns:1fr}.amt input{flex:1;width:auto}}
+.summary{position:sticky;top:150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px}
+@media (max-width:880px){.summary{position:static}}
+.big{font-size:52px;font-weight:900}
+.summary dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:12px 0}
+.summary dt{color:var(--muted)} .summary dd{margin:0;font-weight:700;text-align:right}
+.btn{display:inline-block;border:0;border-radius:6px;padding:12px 18px;font-weight:700;background:var(--blue);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.red{background:var(--down);color:#fff}
+.btn.green{background:var(--up);color:#04140A}
+.btn.wide{width:100%}
+.errs{color:var(--down);font-size:14px;margin:8px 0 0;padding-left:18px}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.pct{font-size:40px;font-weight:900;margin-top:4px}
+.barbg{height:6px;background:var(--panel2);border-radius:3px;margin-top:8px;overflow:hidden}
+.barfg{height:100%}
+.lb{display:flex;flex-direction:column;gap:8px}
+.lbrow{display:grid;grid-template-columns:72px 1fr auto;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 18px}
+.rk{font-size:56px;font-weight:900;color:var(--muted)}
+.tn{font-size:30px;font-weight:800}
+.val{font-size:40px;font-weight:900;text-align:right}
+.sub{font-size:15px;font-weight:600}
+.lbrow.first{background:var(--goldbg);border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.lbrow.first .rk,.lbrow.first .tn{color:var(--gold)}
+.lbrow.hidden{opacity:.55}
+.lbrow.pop{animation:pop .7s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:600px){.lbrow{grid-template-columns:48px 1fr}.rk{font-size:40px}.val{grid-column:1/-1;text-align:left;font-size:32px}.tn{font-size:24px}}
+@media (prefers-reduced-motion: reduce){.lbrow.pop{animation:none}}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50;width:100%;height:100%}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+@media (max-width:380px){.pcards{grid-template-columns:1fr}}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+.pcard h3{margin:0 0 8px;font-size:28px;font-weight:800}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600}
+tfoot td{font-weight:700;border-bottom:0}
+.admin{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+.card h3{margin:0 0 10px;font-size:26px;font-weight:800}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.field label{font-size:13px;color:var(--muted)}
+.field input,.retrow input{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px 10px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.retrow{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;margin-bottom:4px;font-size:14px}
+.retrow input{text-align:right;padding:6px 8px}
+.steps{display:flex;gap:6px;margin-bottom:12px}
+.steps span{flex:1;text-align:center;padding:6px;border-radius:6px;background:var(--panel2);font-size:13px;color:var(--muted);font-weight:600}
+.steps span.on{background:var(--blue);color:#fff}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <div class="brand"><span class="disp">Trading Floor</span><small>Round 1 · Market Rumour Mayhem</small></div>
+      <div class="phase" id="phase"><span class="dot"></span><span id="phaseTxt">Loading</span></div>
+      <div class="clock disp" id="clock" aria-live="off"></div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<div class="ticker" aria-hidden="true"><div class="track" id="ticker"></div></div>
+<main class="wrap" id="app"></main>
+<canvas id="confetti"></canvas>
+<script>
+const STOCKS=[
+ ["RELIANCE","Reliance Industries","Energy & Conglomerate","Reliance in talks for ₹40,000 cr European green-hydrogen acquisition"],
+ ["INFY","Infosys","IT Services","Data breach at US bank linked to system 'managed by an Indian IT vendor'"],
+ ["SBIN","State Bank of India","PSU Banking","Regulator review flags stress in SBI's agriculture loan book"],
+ ["SUNPHARMA","Sun Pharma","Pharmaceuticals","New skin-disease drug posts strong late-stage trial data"],
+ ["LT","Larsen & Toubro","Infrastructure","L&T seen as frontrunner for ₹60,000 cr high-speed rail contract"],
+ ["MARUTI","Maruti Suzuki","Automobiles","Chip shortage from overseas supplier threatens two plants"],
+ ["ETERNAL","Eternal (Zomato)","Consumer Internet","Quarterly loss set to widen on quick-commerce spending spree"],
+ ["BHARTIARTL","Bharti Airtel","Telecom","Airtel eyes stake in Southeast Asian telecom operator"],
+ ["ITC","ITC","FMCG & Conglomerate","Leadership shake-up: global FMCG veteran tipped as next CEO"],
+ ["INDIGO","InterGlobe Aviation (IndiGo)","Aviation","IndiGo near mega partnership with Gulf airline; oil prices climbing"],
+ ["HDFCBANK","HDFC Bank","Banking",""],
+ ["ICICIBANK","ICICI Bank","Banking",""],
+ ["TCS","Tata Consultancy Services","IT Services",""],
+ ["HINDUNILVR","Hindustan Unilever","FMCG",""],
+ ["M&M","Mahindra & Mahindra","Automobiles",""],
+ ["TITAN","Titan Company","Consumer Durables",""],
+ ["NTPC","NTPC","Power",""],
+ ["TATASTEEL","Tata Steel","Metals",""],
+ ["BEL","Bharat Electronics","Defence",""],
+ ["ASIANPAINT","Asian Paints","Paints",""],
+].map(([code,name,sector,rumour])=>({code,name,sector,rumour}));
+const CAPITAL=100000, STEP=1000, NTEAMS=8;
+
+function freshState(){
+  return {v:1,round:1,phase:"setup",pin:"1234",timerEnd:null,timerMin:10,returns:{},revealCount:0,
+    teams:Array.from({length:NTEAMS},(_,i)=>({name:"Team "+(i+1),alloc:{},submitted:false,submittedAt:null}))};
+}
+let S=freshState(), ref=null, mode="local", writing=false, queued=null, readOnly=false;
+const LKEY="tf-round1";
+try{const t=localStorage.getItem(LKEY);if(t)S=JSON.parse(t)}catch(e){}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify(S))}catch(e){}}
+function commit(){saveLocal();if(mode==="db"){queued=JSON.parse(JSON.stringify(S));flush()}render()}
+async function flush(){
+  if(writing||!queued)return;
+  writing=true;const body=queued;queued=null;
+  try{await ref.set(body)}catch(e){
+    if(e&&e.code==="unavailable"){queued=queued||body;setTimeout(()=>{writing=false;flush()},800+Math.random()*800);return}
+    readOnly=true;toast("This screen can only watch. Make changes on the organizer's device.");
+  }
+  writing=false;if(queued)flush();
+}
+(async()=>{
+  try{
+    const db=await window.claude?.use?.("db");
+    if(!db)return;
+    ref=db.doc("game/round1");
+    const snap=await ref.get();
+    if(snap.exists)S=JSON.parse(JSON.stringify(snap.data()));
+    else{try{await ref.set(S)}catch(e){}}
+    mode="db";saveLocal();safeRender();
+    ref.onSnapshot(s=>{if(!s.exists||s.metadata.hasPendingWrites)return;S=JSON.parse(JSON.stringify(s.data()));saveLocal();safeRender()},()=>{});
+  }catch(e){}
+})();
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>(n<0?"−₹":"₹")+Math.abs(Math.round(n)).toLocaleString("en-IN");
+const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.abs(n).toFixed(0))+"%";
+const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
+const cls=n=>n>0?"up":n<0?"down":"flat";
+const revealed=()=>S.phase==="revealed";
+let unlocked=false, tab="trade", teamSel=0, openRumour=null;
+
+function teamCalc(t){
+  let invested=0,value=0;const rows=[];
+  for(const s of STOCKS){
+    const a=Number(t.alloc[s.code]||0);if(!a)continue;
+    const r=Number(S.returns[s.code]||0),v=a*(1+r/100);
+    rows.push({s,a,r,v});
+    if(t.submitted){invested+=a;value+=v}
+  }
+  const cash=CAPITAL-invested,final=cash+value;
+  return {rows,invested,cash,value,final,pl:final-CAPITAL,ret:(final-CAPITAL)/CAPITAL*100,counted:t.submitted};
+}
+function ranking(){
+  const list=S.teams.map((t,i)=>({i,t,...teamCalc(t)}));
+  list.sort((a,b)=>Math.round(b.final)-Math.round(a.final)||(a.t.submittedAt||9e15)-(b.t.submittedAt||9e15));
+  let rank=0,prev=null;
+  list.forEach((x,k)=>{const f=Math.round(x.final);if(prev===null||f!==prev)rank=k+1;x.rank=rank;prev=f});
+  return list;
+}
+function validate(alloc){
+  const errs=[];let sum=0;
+  for(const s of STOCKS){const a=Number(alloc[s.code]||0);
+    if(a<0)errs.push(s.name+": amount can't be negative.");
+    else if(a%STEP)errs.push(s.name+": use multiples of ₹1,000.");
+    sum+=a}
+  if(sum>CAPITAL)errs.push("Invested "+inr(sum)+" is over ₹1,00,000. Reduce by "+inr(sum-CAPITAL)+".");
+  return {errs,sum};
+}
+
+let pendingRender=false;
+function safeRender(){const a=document.activeElement;if(a&&a.tagName==="INPUT"&&$("#app").contains(a)){pendingRender=true;return}render()}
+document.addEventListener("focusout",()=>{if(pendingRender){pendingRender=false;setTimeout(render,0)}});
+
+const TABS=[["trade","Trading desk"],["market","Market board"],["leader","Leaderboard"],["positions","Positions"],["org","Organizer"]];
+function render(){
+  $("#phase").className="phase "+S.phase;
+  $("#phaseTxt").textContent={setup:"Pre-market",open:"Market open",closed:"Market closed",revealed:"Results live"}[S.phase];
+  $("#tabs").innerHTML=TABS.map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}</button>`).join("");
+  const items=STOCKS.map(s=>{const r=S.returns[s.code];
+    return revealed()&&r!==undefined?`<span><b>${esc(s.code)}</b><span class="${cls(r)}">${r>0?"▲":r<0?"▼":"■"} ${pct(r)}</span></span>`:`<span><b>${esc(s.code)}</b><span class="flat">${s.rumour?"rumour":"no news"}</span></span>`}).join("");
+  $("#ticker").innerHTML=items+items;
+  $("#app").innerHTML={trade:vTrade,market:vMarket,leader:vLeader,positions:vPositions,org:vOrg}[tab]();
+  tickClock();
+}
+
+function vTrade(){
+  const picker=`<div class="teams" role="group" aria-label="Choose your team">${S.teams.map((t,i)=>`<button data-team="${i}" aria-pressed="${teamSel===i}"><b>${esc(t.name)}</b><small>${t.submitted?"Trades locked":S.phase==="open"?"Not submitted":"Waiting"}</small></button>`).join("")}</div>`;
+  const t=S.teams[teamSel];
+  const head=`<h2 class="disp">Trading desk</h2><p class="lead">Pick your team, split ₹1,00,000 across any of the 20 stocks in steps of ₹1,000, then lock your trades. Anything you don't invest stays as cash.</p>`;
+  if(S.phase==="setup")return head+picker+`<div class="notice">The market isn't open yet. Trading starts when the organizer opens the market.</div>`;
+  const locked=t.submitted||S.phase!=="open"||readOnly;
+  const {errs,sum}=validate(t.alloc);
+  let note="";
+  if(t.submitted)note=`<div class="notice good">${esc(t.name)}'s trades are locked. No changes allowed.</div>`;
+  else if(S.phase!=="open")note=`<div class="notice bad">Market closed. ${esc(t.name)} didn't lock trades, so the full ₹1,00,000 is held as cash.</div>`;
+  const rows=STOCKS.map(s=>{const a=Number(t.alloc[s.code]||0);
+    return `<div class="row"><div><span class="nm">${esc(s.name)}</span>${s.rumour?`<button class="rum" data-rumour="${s.code}" aria-expanded="${openRumour===s.code}">Rumour</button>`:""}<div class="sec">${esc(s.sector)}</div></div>
+    <div class="amt"><button data-dec="${s.code}" ${locked?"disabled":""} aria-label="Remove ₹1,000 from ${esc(s.name)}">−</button><label class="sr" for="a-${s.code}">Amount in ${esc(s.name)}</label><input id="a-${s.code}" inputmode="numeric" data-amt="${s.code}" value="${a||""}" placeholder="0" ${locked?"disabled":""} class="${a%STEP||a<0?"err":""}"><button data-inc="${s.code}" ${locked?"disabled":""} aria-label="Add ₹1,000 to ${esc(s.name)}">+</button></div>
+    ${openRumour===s.code?`<div class="rumtext"><b>${esc(s.rumour)}</b><br>Fictional, for simulation only.</div>`:""}</div>`}).join("");
+  const summary=`<aside class="summary"><div class="sec">Cash left</div><div class="big disp ${CAPITAL-sum<0?"down":""}">${inr(CAPITAL-sum)}</div>
+   <dl><dt>Starting capital</dt><dd>${inr(CAPITAL)}</dd><dt>Invested</dt><dd>${inr(sum)}</dd><dt>Stocks held</dt><dd>${STOCKS.filter(s=>t.alloc[s.code]>0).length}</dd></dl>
+   ${errs.length?`<ul class="errs">${errs.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:""}
+   ${locked?"":`<button class="btn green wide" data-submit ${errs.length?"disabled":""} style="margin-top:12px">Lock ${esc(t.name)}'s trades</button><button class="btn ghost wide" data-clear style="margin-top:8px">Clear ticket</button>`}
+  </aside>`;
+  return head+picker+note+`<div class="desk"><div class="rows">${rows}</div>${summary}</div>`;
+}
+
+function vMarket(){
+  const head=`<h2 class="disp">Market board</h2><p class="lead">${revealed()?"How each stock moved this round. Green gained, red lost.":"Prices move when results are revealed. Ten stocks have rumours; the other ten can move too."}</p>`;
+  const list=[...STOCKS];
+  if(revealed())list.sort((a,b)=>(S.returns[b.code]||0)-(S.returns[a.code]||0));
+  const max=Math.max(1,...Object.values(S.returns).map(v=>Math.abs(+v||0)));
+  return head+`<div class="board">${list.map(s=>{const r=S.returns[s.code];const show=revealed()&&r!==undefined;
+    return `<div class="tile"><div><b>${esc(s.name)}</b>${s.rumour?`<span class="rum">Rumour</span>`:""}</div><div class="sec">${esc(s.sector)}</div>
+    <div class="pct disp ${show?cls(r):"flat"}">${show?pct(r):"?"}</div>
+    <div class="barbg"><div class="barfg" style="width:${show?Math.abs(r)/max*100:0}%;background:${show?(r>=0?"var(--up)":"var(--down)"):"transparent"}"></div></div></div>`}).join("")}</div>`;
+}
+
+function vLeader(){
+  const head=`<h2 class="disp">Leaderboard</h2>`;
+  if(!revealed())return head+`<p class="lead">Rankings appear once the market closes and results are revealed.</p><div class="lb">${S.teams.map(t=>`<div class="lbrow"><div class="rk disp">–</div><div><div class="tn disp">${esc(t.name)}</div><div class="sub flat">${t.submitted?"Trades locked":"Waiting for trades"}</div></div><div class="val disp">${inr(CAPITAL)}</div></div>`).join("")}</div>`;
+  const r=ranking(),shown=S.revealCount;
+  const rows=r.map((x,k)=>{const vis=k>=NTEAMS-shown;
+    return `<div class="lbrow ${vis&&x.rank===1?"first":""} ${vis?"":"hidden"} ${vis&&k===NTEAMS-shown?"pop":""}"><div class="rk disp">${vis?x.rank:"?"}</div>
+     <div><div class="tn disp">${vis?esc(x.t.name):"Hidden"}</div>${vis?`<div class="sub ${cls(x.pl)}">${x.pl>=0?"+":""}${inr(x.pl)} (${pct2(x.ret)})${x.counted?"":" · no trades locked"}</div>`:""}</div>
+     <div class="val disp">${vis?inr(x.final):"₹ —"}</div></div>`}).join("");
+  return head+`<p class="lead">${shown<NTEAMS?`Revealing from the bottom up. ${NTEAMS-shown} position${NTEAMS-shown===1?"":"s"} still hidden.`:"Each team's final value is its starting capital for Round 2. Equal values share a rank."}</p><div class="lb">${rows}</div>`;
+}
+
+function vPositions(){
+  const head=`<h2 class="disp">Positions</h2>`;
+  if(S.phase==="setup"||S.phase==="open")return head+`<p class="lead">Every team's holdings appear here once the market closes, so nobody can copy another team's strategy.</p>`;
+  return head+`<p class="lead">${revealed()?"Each holding revalued at this round's simulated return.":"Holdings are locked. Values update when results are revealed."}</p><div class="pcards">${S.teams.map(t=>{const c=teamCalc(t);
+    const body=c.counted&&c.rows.length?c.rows.map(x=>`<tr><td>${esc(x.s.name)}</td><td>${inr(x.a)}</td><td class="${revealed()?cls(x.r):"flat"}">${revealed()?pct(x.r):"?"}</td><td>${revealed()?inr(x.v):"—"}</td></tr>`).join(""):`<tr><td colspan="4" style="text-align:left;color:var(--muted)">${c.counted?"No stocks bought.":"No trades locked."} All cash.</td></tr>`;
+    return `<div class="pcard"><h3 class="disp">${esc(t.name)}</h3><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th><th>Move</th><th>Value</th></tr></thead><tbody>${body}<tr><td>Cash</td><td>${inr(c.cash)}</td><td class="flat">0%</td><td>${inr(c.cash)}</td></tr></tbody>
+    <tfoot><tr><td>Portfolio</td><td>${inr(CAPITAL)}</td><td class="${revealed()?cls(c.ret):"flat"}">${revealed()?pct2(c.ret):""}</td><td>${revealed()?inr(c.final):"—"}</td></tr></tfoot></table></div></div>`}).join("")}</div>`;
+}
+
+function vOrg(){
+  const head=`<h2 class="disp">Organizer</h2>`;
+  if(!unlocked)return head+`<p class="lead">Enter the organizer PIN to run the round.</p><div class="card" style="max-width:360px"><div class="field"><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off"></div><button class="btn" data-unlock>Unlock</button><p class="sec">The starting PIN is 1234. Change it once you're in.</p></div>`;
+  const steps=["setup","open","closed","revealed"].map((p,i)=>`<span class="${S.phase===p?"on":""}">${["Pre-market","Trading","Closed","Results"][i]}</span>`).join("");
+  const subCount=S.teams.filter(t=>t.submitted).length;
+  const haveRet=STOCKS.every(s=>S.returns[s.code]!==undefined);
+  return head+`<p class="lead">${mode==="db"?"Changes here show on every screen that has this page open.":"Saved on this device only. Run the whole round from this screen."}</p>
+  <div class="steps">${steps}</div>
+  <div class="admin">
+   <div class="card"><h3 class="disp">Run the round</h3>
+    <p>${subCount} of ${NTEAMS} teams have locked trades.</p>
+    <div class="btns">
+     ${S.phase==="setup"?`<button class="btn green" data-phase="open">Open the market</button>`:""}
+     ${S.phase==="open"?`<button class="btn red" data-phase="closed">Close the market</button>`:""}
+     ${S.phase==="closed"?`<button class="btn" data-reveal ${haveRet?"":"disabled"}>Reveal results</button>${haveRet?"":`<span class="sec">Enter all 20 returns first.</span>`}`:""}
+     ${S.phase==="revealed"?`<button class="btn" data-next ${S.revealCount>=NTEAMS?"disabled":""}>Reveal next position</button><button class="btn ghost" data-all>Reveal all</button>`:""}
+    </div>
+    <h3 class="disp" style="margin-top:18px">Trading timer</h3>
+    <div class="field"><label for="tmin">Minutes</label><input id="tmin" type="number" min="1" max="120" value="${S.timerMin}"></div>
+    <div class="btns"><button class="btn" data-tstart>Start timer</button><button class="btn ghost" data-tstop>Stop timer</button></div>
+   </div>
+   <div class="card"><h3 class="disp">Teams</h3>
+    ${S.teams.map((t,i)=>`<div class="field"><label for="tn${i}">Team ${i+1}${t.submitted?" · locked":""}</label><div style="display:flex;gap:6px"><input id="tn${i}" data-tname="${i}" value="${esc(t.name)}" maxlength="24" style="flex:1">${t.submitted&&S.phase==="open"?`<button class="btn ghost" data-unlockteam="${i}">Unlock</button>`:""}</div></div>`).join("")}
+   </div>
+   <div class="card"><h3 class="disp">Stock returns (%)</h3>
+    <p class="sec" style="margin-top:0">Hidden from everyone until you reveal. Type them in from the organizer workbook after the market closes.</p>
+    ${S.phase==="revealed"?"":`<div class="btns" style="margin-bottom:10px"><button class="btn ghost" data-clearret>Clear</button></div>`}
+    ${STOCKS.map(s=>`<div class="retrow"><label for="r-${s.code}">${esc(s.name)}</label><input id="r-${s.code}" data-ret="${s.code}" inputmode="decimal" value="${S.returns[s.code]??""}" ${S.phase==="revealed"?"disabled":""}></div>`).join("")}
+   </div>
+   <div class="card"><h3 class="disp">Settings</h3>
+    <div class="field"><label for="npin">New PIN</label><input id="npin" type="password" inputmode="numeric" autocomplete="off"></div>
+    <div class="btns"><button class="btn ghost" data-setpin>Save PIN</button></div>
+    <h3 class="disp" style="margin-top:18px">Start over</h3>
+    <p class="sec">Clears every ticket, timer and result. Team names and PIN stay.</p>
+    <button class="btn red" data-reset>Reset round</button>
+   </div>
+  </div>`;
+}
+
+function tickClock(){
+  const el=$("#clock");
+  if(!S.timerEnd){el.textContent="";el.className="clock disp";return}
+  const ms=Math.max(0,S.timerEnd-Date.now()),m=Math.floor(ms/60000),s=Math.floor(ms%60000/1000);
+  el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+  el.className="clock disp"+(ms<60000?" warn":"");
+}
+setInterval(tickClock,500);
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b||b.disabled)return;const d=b.dataset;
+  if(d.tab){tab=d.tab;render();return}
+  if(d.team!==undefined){teamSel=+d.team;openRumour=null;render();return}
+  if(d.rumour){openRumour=openRumour===d.rumour?null:d.rumour;render();return}
+  const t=S.teams[teamSel];
+  if(d.inc||d.dec){if(t.submitted||S.phase!=="open")return;const c=d.inc||d.dec,a=Number(t.alloc[c]||0);
+    const n=Math.max(0,Math.round(a/STEP)*STEP+(d.inc?STEP:-STEP));if(n)t.alloc[c]=n;else delete t.alloc[c];commit();return}
+  if("clear" in d){t.alloc={};commit();return}
+  if("submit" in d){if(validate(t.alloc).errs.length||S.phase!=="open")return;
+    if(!confirm("Lock "+t.name+"'s trades? They can't be changed after this."))return;
+    t.submitted=true;t.submittedAt=Date.now();commit();return}
+  if("unlock" in d){if(($("#pin").value||"")===String(S.pin)){unlocked=true;render()}else toast("Wrong PIN. Try again.");return}
+  if(!unlocked)return;
+  if(d.phase){if(d.phase==="closed"&&!confirm("Close the market? Teams that haven't locked trades will hold all cash."))return;
+    S.phase=d.phase;if(d.phase==="closed")S.timerEnd=null;commit();return}
+  if("reveal" in d){S.phase="revealed";S.revealCount=0;tab="leader";commit();return}
+  if("next" in d){S.revealCount=Math.min(NTEAMS,S.revealCount+1);tab="leader";commit();if(S.revealCount===NTEAMS)confetti();return}
+  if("all" in d){S.revealCount=NTEAMS;tab="leader";commit();confetti();return}
+  if("tstart" in d){const m=Math.max(1,Math.min(120,+$("#tmin").value||10));S.timerMin=m;S.timerEnd=Date.now()+m*60000;commit();return}
+  if("tstop" in d){S.timerEnd=null;commit();return}
+  if(d.unlockteam!==undefined){const x=S.teams[+d.unlockteam];x.submitted=false;x.submittedAt=null;commit();return}
+  if("clearret" in d){S.returns={};commit();return}
+  if("setpin" in d){const p=($("#npin").value||"").trim();if(p.length<3){toast("Use at least 3 digits.");return}S.pin=p;commit();toast("PIN saved.");return}
+  if("reset" in d){if(!confirm("Reset the whole round? This clears every ticket and result."))return;
+    const names=S.teams.map(x=>x.name),pin=S.pin;S=freshState();S.pin=pin;S.teams.forEach((x,i)=>x.name=names[i]);commit();return}
+});
+document.addEventListener("change",e=>{
+  const i=e.target,d=i.dataset;
+  if(d.amt){const t=S.teams[teamSel];if(t.submitted||S.phase!=="open")return;
+    const n=Math.round(Number(String(i.value).replace(/[^\d.-]/g,""))||0);
+    if(n)t.alloc[d.amt]=n;else delete t.alloc[d.amt];commit();return}
+  if(!unlocked)return;
+  if(d.tname!==undefined){S.teams[+d.tname].name=i.value.trim()||("Team "+(+d.tname+1));commit();return}
+  if(d.ret){const v=i.value.trim();if(v==="")delete S.returns[d.ret];else{const n=Number(v);if(Number.isFinite(n))S.returns[d.ret]=n}commit();return}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="pin")$("[data-unlock]")?.click()});
+
+function toast(msg){const n=document.createElement("div");n.textContent=msg;n.setAttribute("role","status");
+  n.style.cssText="position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;z-index:60;font-weight:600;max-width:90vw";
+  document.body.appendChild(n);setTimeout(()=>n.remove(),2800)}
+function confetti(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const c=$("#confetti"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
+  const cols=["#F2C744","#2BFF88","#2FE0FF","#3D7BFF","#FFFFFF"];
+  const P=Array.from({length:180},()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height*.5,r:4+Math.random()*6,vy:2+Math.random()*4,vx:-1.5+Math.random()*3,a:Math.random()*6,c:cols[Math.floor(Math.random()*cols.length)]}));
+  let f=0;(function loop(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.y+=p.vy;p.x+=p.vx;p.a+=.1;x.fillStyle=p.c;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});
+    if(++f<240)requestAnimationFrame(loop);else x.clearRect(0,0,c.width,c.height)})();
+}
+render();
+</script>
+</body>
+</html>
