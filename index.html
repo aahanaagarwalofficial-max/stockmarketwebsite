@@ -207,12 +207,14 @@ const ROUNDS={
   ["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],["TITAN","Titan Company","Consumer Durables"],
   ["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"]]
 };
+const DEFAULT_PRICES={RELIANCE:1218,INFY:1013.85,SBIN:958.75,SUNPHARMA:1804.1,LT:3770,MARUTI:11625,ETERNAL:329,BHARTIARTL:1810.5,ITC:266.7,INDIGO:5050.5,HDFCBANK:711.45,ICICIBANK:1342.8,TCS:2100,HINDUNILVR:1895.2,"M&M":2855,TITAN:4550,NTPC:321.45,TATASTEEL:178.69,BEL:387.4,ASIANPAINT:2424.2};
+const price=c=>{const v=Number((G.prices||{})[c]);return v>0?v:DEFAULT_PRICES[c]};
 for(const k in ROUNDS)ROUNDS[k]=ROUNDS[k].map(([code,name,sector])=>({code,name,sector}));
 const START=100000, STEP=1000, RK=["r1","r2"];
 const TEAM_IDS=["team1","team2","team3","team4","team5","team6","team7","team8"];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const inr=n=>(n<0?"−₹":"₹")+Math.abs(Math.round(n)).toLocaleString("en-IN");
+const inr=n=>{const a=Math.abs(Math.round(n*100)/100);return (n<0?"−₹":"₹")+a.toLocaleString("en-IN",{minimumFractionDigits:a%1?2:0,maximumFractionDigits:2})};
 const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.abs(n).toFixed(0))+"%";
 const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
 const cls=n=>n>0?"up":n<0?"down":"flat";
@@ -275,7 +277,7 @@ function listen(){
 const rk=()=>G.roundKey;
 const capital=()=>rk()==="r1"?START:(CAP.r2??null);
 function validate(alloc,cap){const errs=[];let sum=0;
-  for(const s of ROUNDS[rk()]){const a=Number(alloc[s.code]||0);if(a<0)errs.push(s.name+": amount can't be negative.");else if(a%STEP)errs.push(s.name+": use multiples of ₹1,000.");sum+=a}
+  for(const s of ROUNDS[rk()]){const q=Number(alloc[s.code]||0);if(q<0||!Number.isInteger(q))errs.push(s.name+": use a whole number of shares.");sum+=q*price(s.code)}
   if(sum>cap)errs.push("Invested "+inr(sum)+" is more than your "+inr(cap)+". Reduce by "+inr(sum-cap)+".");return {errs,sum}}
 function saveMine(){myDirty=true;clearTimeout(saveTimer);const k=rk(),body={alloc:MY[k].alloc,submitted:false,submittedAt:null};
   saveTimer=setTimeout(async()=>{try{await setDoc(doc(db,"portfolios",teamId,"rounds",k),body)}catch(e){toast("Couldn't save. The market may be closed.")}myDirty=false},500)}
@@ -293,7 +295,7 @@ function render(){
 }
 function vTrade(){
   const k=rk(),cap=capital(),M=MY[k];
-  const head=`<h2 class="disp">Round ${G.round} trading desk</h2><p class="lead">${k==="r1"?"Split your ₹1,00,000 across this round's 10 stocks":"Your starting money for Round 2 is your Round 1 final value. Split it across this round's 10 new stocks"} in steps of ₹1,000, then lock your trades. Anything you don't invest stays as cash.</p>`;
+  const head=`<h2 class="disp">Round ${G.round} trading desk</h2><p class="lead">${k==="r1"?"Split your ₹1,00,000 across this round's 10 stocks":"Your starting money for Round 2 is your Round 1 final value. Split it across this round's 10 new stocks"} by buying whole shares at the prices shown, then lock your trades. Anything you don't invest stays as cash.</p>`;
   if(cap===null)return head+`<div class="notice">Waiting for the organizer to set up Round 2.</div>`;
   if(G.phase==="setup")return head+`<div class="notice">The market isn't open yet. Round ${G.round} trading starts when the organizer opens the market. Your starting money: <b>${inr(cap)}</b>.</div>`;
   if(G.phase==="revealed")return head+`<div class="notice good">Round ${G.round} is over. ${revealedRounds().length?"Check the Leaderboard tab.":""}</div>`;
@@ -301,11 +303,11 @@ function vTrade(){
   let note="";
   if(M.submitted)note=`<div class="notice good">Your Round ${G.round} trades are locked. No changes allowed.</div>`;
   else if(G.phase!=="open")note=`<div class="notice bad">Market closed. Your team didn't lock trades, so all ${inr(cap)} is held as cash this round.</div>`;
-  const rows=ROUNDS[k].map(s=>{const a=Number(M.alloc[s.code]||0);
-    return `<div class="row"><div><span class="nm">${esc(s.name)}</span><div class="sec">${esc(s.sector)}</div></div>
-    <div class="amt"><button data-dec="${s.code}" ${locked?"disabled":""} aria-label="Remove ₹1,000 from ${esc(s.name)}">−</button><label class="sr" for="a-${s.code}">Amount in ${esc(s.name)}</label><input id="a-${s.code}" inputmode="numeric" data-amt="${s.code}" value="${a||""}" placeholder="0" ${locked?"disabled":""} class="${a%STEP||a<0?"err":""}"><button data-inc="${s.code}" ${locked?"disabled":""} aria-label="Add ₹1,000 to ${esc(s.name)}">+</button></div></div>`}).join("");
+  const rows=ROUNDS[k].map(s=>{const q=Number(M.alloc[s.code]||0),p=price(s.code);
+    return `<div class="row"><div><span class="nm">${esc(s.name)}</span><div class="sec">${esc(s.sector)} · <b>${inr(p)}</b> per share</div>${q?`<div class="sec">${q} share${q===1?"":"s"} = <b>${inr(q*p)}</b></div>`:""}</div>
+    <div class="amt"><button data-dec="${s.code}" ${locked?"disabled":""} aria-label="Remove 1 share of ${esc(s.name)}">−</button><label class="sr" for="a-${s.code}">Number of ${esc(s.name)} shares</label><input id="a-${s.code}" inputmode="numeric" data-amt="${s.code}" value="${q||""}" placeholder="0 shares" ${locked?"disabled":""} class="${q<0||!Number.isInteger(q)?"err":""}"><button data-inc="${s.code}" ${locked?"disabled":""} aria-label="Add 1 share of ${esc(s.name)}">+</button></div></div>`}).join("");
   const summary=`<aside class="summary"><div class="sec">Cash left</div><div class="big disp ${cap-sum<0?"down":""}">${inr(cap-sum)}</div>
-   <dl><dt>Starting money</dt><dd>${inr(cap)}</dd><dt>Invested</dt><dd>${inr(sum)}</dd><dt>Stocks held</dt><dd>${ROUNDS[k].filter(s=>M.alloc[s.code]>0).length}</dd></dl>
+   <dl><dt>Starting money</dt><dd>${inr(cap)}</dd><dt>Invested</dt><dd>${inr(sum)}</dd><dt>Companies held</dt><dd>${ROUNDS[k].filter(s=>M.alloc[s.code]>0).length}</dd><dt>Total shares</dt><dd>${ROUNDS[k].reduce((t,s)=>t+Number(M.alloc[s.code]||0),0)}</dd></dl>
    ${errs.length?`<ul class="errs">${errs.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:""}
    ${locked?"":`<button class="btn green wide" data-submit ${errs.length?"disabled":""} style="margin-top:12px">Lock our trades</button><button class="btn ghost wide" data-clear style="margin-top:8px">Clear ticket</button>`}</aside>`;
   return head+note+`<div class="desk"><div class="rows">${rows}</div>${summary}</div>`;
@@ -313,12 +315,12 @@ function vTrade(){
 function vMine(){
   const k=rk(),cap=capital(),M=MY[k];
   if(cap===null)return `<h2 class="disp">My portfolio</h2><div class="notice">Waiting for the organizer to set up Round 2.</div>`;
-  const held=ROUNDS[k].filter(s=>M.alloc[s.code]>0);let inv=0;held.forEach(s=>inv+=M.alloc[s.code]);
+  const held=ROUNDS[k].filter(s=>M.alloc[s.code]>0);let inv=0;held.forEach(s=>inv+=M.alloc[s.code]*price(s.code));
   const cash=M.submitted?cap-inv:cap;
   return `<h2 class="disp">My portfolio · Round ${G.round}</h2><p class="lead">${M.submitted?"Your locked trades for this round.":G.phase==="open"||G.phase==="setup"?"Not locked yet. Lock your trades on the Trading desk before the market closes.":"Your team didn't lock trades this round, so everything is held as cash."}</p>
-  <div class="pcard" style="max-width:560px"><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th></tr></thead><tbody>
-  ${held.length?held.map(s=>`<tr><td>${esc(s.name)}${M.submitted?"":` <span class="sec">(not locked)</span>`}</td><td>${inr(M.alloc[s.code])}</td></tr>`).join(""):`<tr><td colspan="2" style="color:var(--muted)">No stocks yet.</td></tr>`}
-  <tr><td>Cash</td><td>${inr(cash)}</td></tr></tbody><tfoot><tr><td>Total</td><td>${inr(cap)}</td></tr></tfoot></table></div></div>`;
+  <div class="pcard" style="max-width:560px"><div class="scroll"><table><thead><tr><th>Stock</th><th>Shares</th><th>Price</th><th>Invested</th></tr></thead><tbody>
+  ${held.length?held.map(s=>`<tr><td>${esc(s.name)}${M.submitted?"":` <span class="sec">(not locked)</span>`}</td><td>${M.alloc[s.code]}</td><td>${inr(price(s.code))}</td><td>${inr(M.alloc[s.code]*price(s.code))}</td></tr>`).join(""):`<tr><td colspan="4" style="color:var(--muted)">No stocks yet.</td></tr>`}
+  <tr><td>Cash</td><td></td><td></td><td>${inr(cash)}</td></tr></tbody><tfoot><tr><td>Total</td><td></td><td></td><td>${inr(cap)}</td></tr></tfoot></table></div></div>`;
 }
 function vLeader(){
   return revealedRounds().reverse().map(k=>{const r=RES[k];
@@ -335,7 +337,7 @@ document.addEventListener("click",async e=>{
   if(d.tab){tab=d.tab;render();return}
   if(!teamId)return;const k=rk(),M=MY[k],cap=capital();
   if(d.inc||d.dec){if(M.submitted||G.phase!=="open"||cap===null)return;const c=d.inc||d.dec,a=Number(M.alloc[c]||0);
-    const n=Math.max(0,Math.round(a/STEP)*STEP+(d.inc?STEP:-STEP));if(n)M.alloc[c]=n;else delete M.alloc[c];render();saveMine();return}
+    if(d.inc&&validate(M.alloc,cap).sum+price(c)>cap+1e-6){toast("Not enough cash for another "+c+" share.");return}const n=Math.max(0,Math.round(a)+(d.inc?1:-1));if(n)M.alloc[c]=n;else delete M.alloc[c];render();saveMine();return}
   if("clear" in d){M.alloc={};render();saveMine();return}
   if("submit" in d){if(cap===null||validate(M.alloc,cap).errs.length||G.phase!=="open")return;
     if(!confirm("Lock your team's Round "+G.round+" trades? They can't be changed after this."))return;clearTimeout(saveTimer);

@@ -207,12 +207,14 @@ const ROUNDS={
   ["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],["TITAN","Titan Company","Consumer Durables"],
   ["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"]]
 };
+const DEFAULT_PRICES={RELIANCE:1218,INFY:1013.85,SBIN:958.75,SUNPHARMA:1804.1,LT:3770,MARUTI:11625,ETERNAL:329,BHARTIARTL:1810.5,ITC:266.7,INDIGO:5050.5,HDFCBANK:711.45,ICICIBANK:1342.8,TCS:2100,HINDUNILVR:1895.2,"M&M":2855,TITAN:4550,NTPC:321.45,TATASTEEL:178.69,BEL:387.4,ASIANPAINT:2424.2};
+const price=c=>{const v=Number((G.prices||{})[c]);return v>0?v:DEFAULT_PRICES[c]};
 for(const k in ROUNDS)ROUNDS[k]=ROUNDS[k].map(([code,name,sector])=>({code,name,sector}));
 const START=100000, STEP=1000, RK=["r1","r2"];
 const TEAM_IDS=["team1","team2","team3","team4","team5","team6","team7","team8"];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const inr=n=>(n<0?"−₹":"₹")+Math.abs(Math.round(n)).toLocaleString("en-IN");
+const inr=n=>{const a=Math.abs(Math.round(n*100)/100);return (n<0?"−₹":"₹")+a.toLocaleString("en-IN",{minimumFractionDigits:a%1?2:0,maximumFractionDigits:2})};
 const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.abs(n).toFixed(0))+"%";
 const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
 const cls=n=>n>0?"up":n<0?"down":"flat";
@@ -275,7 +277,7 @@ function listen(){
 const haveRet=k=>ROUNDS[k].every(s=>SECRET[k][s.code]!==undefined);
 const capOf=(t,k)=>k==="r1"?START:(CAPS[t]||{}).r2;
 function calc(t,k){const p=P[t+"/"+k]||{},sub=!!p.submitted,cap=capOf(t,k)??START;let invested=0,value=0;const rows=[];
-  for(const s of ROUNDS[k]){const a=Number((p.alloc||{})[s.code]||0);if(!a)continue;const r=Number(SECRET[k][s.code]||0),v=a*(1+r/100);rows.push({s,a,r,v});if(sub){invested+=a;value+=v}}
+  for(const s of ROUNDS[k]){const q=Number((p.alloc||{})[s.code]||0);if(!q)continue;const a=q*price(s.code);const r=Number(SECRET[k][s.code]||0),v=a*(1+r/100);rows.push({s,q,a,r,v});if(sub){invested+=a;value+=v}}
   const cash=cap-invested,final=cash+value;return {rows,cash,cap,final,pl:final-cap,ret:(final-cap)/cap*100,counted:sub,submitted:sub,at:p.submittedAt||9e15}}
 function ranking(k){const list=TEAM_IDS.map(t=>({t,name:teamName(t),...calc(t,k)}));
   list.sort((a,b)=>Math.round(b.final)-Math.round(a.final)||a.at-b.at);let rank=0,prev=null;
@@ -315,6 +317,9 @@ function vControl(){
     <p class="sec" style="margin-top:0">Never shown to teams. Paste the 10 numbers for Round ${G.round} from the answer key (same order), or type them one by one.</p>
     ${G.phase==="revealed"?"":`<div class="field"><label for="paste">Paste 10 returns</label><textarea id="paste" placeholder="-4&#10;5&#10;-6&#10;..."></textarea></div><div class="btns" style="margin-bottom:10px"><button class="btn ghost" data-paste>Use pasted numbers</button></div>`}
     ${ROUNDS[k].map(s=>`<div class="retrow"><label for="r-${s.code}">${esc(s.name)}</label><input id="r-${s.code}" data-ret="${s.code}" inputmode="decimal" value="${SECRET[k][s.code]??""}" ${G.phase==="revealed"?"disabled":""}></div>`).join("")}</div>
+   <div class="card"><h3 class="disp">Round ${G.round} share prices (₹)</h3><p class="sec" style="margin-top:0">${G.phase==="setup"?"Teams buy whole shares at these prices. Edit any price before opening the market, e.g. to that day's real price.":"Locked while this round is running."}</p>
+    ${ROUNDS[k].map(s=>`<div class="retrow"><label for="p-${s.code}">${esc(s.name)}</label><input id="p-${s.code}" data-price="${s.code}" inputmode="decimal" value="${price(s.code)}" ${G.phase==="setup"?"":"disabled"}></div>`).join("")}
+    ${G.phase==="setup"?`<div class="btns" style="margin-top:8px"><button class="btn ghost" data-defprices>Use default prices</button></div>`:""}</div>
    <div class="card"><h3 class="disp">Start over</h3><p class="sec">Clears both rounds: every team's trades, starting money, returns and leaderboards. Team names stay. Press this once before the event to set everything up.</p><button class="btn red" data-reset>Reset whole competition</button></div>
   </div>`;
 }
@@ -322,9 +327,9 @@ function vAll(){const k=view,show=haveRet(k);
   if(k==="r2"&&G.round<2)view="r1";
   return `<h2 class="disp">All portfolios</h2>${seg()}<p class="lead">${show?"Values use the returns you've entered, even before reveal.":`Enter Round ${rnum(k)} returns to see values.`}</p>
   <div class="pcards">${TEAM_IDS.map(t=>{const c=calc(t,k),p=P[t+"/"+k]||{};
-    const body=c.rows.length?c.rows.map(x=>`<tr><td>${esc(x.s.name)}${c.counted?"":` <span class="sec">(draft)</span>`}</td><td>${inr(x.a)}</td><td class="${show?cls(x.r):"flat"}">${show?pct(x.r):"—"}</td><td>${show&&c.counted?inr(x.v):"—"}</td></tr>`).join(""):`<tr><td colspan="4" style="color:var(--muted)">No stocks.</td></tr>`;
-    return `<div class="pcard"><h3 class="disp">${esc(teamName(t))}</h3><p class="sec" style="margin:0 0 6px">${p.submitted?"Locked":"Not locked (counts as all cash at close)"} · started with ${inr(c.cap)}</p><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th><th>Move</th><th>Value</th></tr></thead><tbody>${body}<tr><td>Cash</td><td>${inr(c.cash)}</td><td class="flat">0%</td><td>${inr(c.cash)}</td></tr></tbody>
-    <tfoot><tr><td>Portfolio</td><td>${inr(c.cap)}</td><td class="${show?cls(c.ret):"flat"}">${show?pct2(c.ret):""}</td><td>${show?inr(c.final):"—"}</td></tr></tfoot></table></div></div>`}).join("")}</div>`;
+    const body=c.rows.length?c.rows.map(x=>`<tr><td>${esc(x.s.name)}${c.counted?"":` <span class="sec">(draft)</span>`}</td><td>${x.q}</td><td>${inr(x.a)}</td><td class="${show?cls(x.r):"flat"}">${show?pct(x.r):"—"}</td><td>${show&&c.counted?inr(x.v):"—"}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No stocks.</td></tr>`;
+    return `<div class="pcard"><h3 class="disp">${esc(teamName(t))}</h3><p class="sec" style="margin:0 0 6px">${p.submitted?"Locked":"Not locked (counts as all cash at close)"} · started with ${inr(c.cap)}</p><div class="scroll"><table><thead><tr><th>Stock</th><th>Shares</th><th>Invested</th><th>Move</th><th>Value</th></tr></thead><tbody>${body}<tr><td>Cash</td><td></td><td>${inr(c.cash)}</td><td class="flat">0%</td><td>${inr(c.cash)}</td></tr></tbody>
+    <tfoot><tr><td>Portfolio</td><td></td><td>${inr(c.cap)}</td><td class="${show?cls(c.ret):"flat"}">${show?pct2(c.ret):""}</td><td>${show?inr(c.final):"—"}</td></tr></tfoot></table></div></div>`}).join("")}</div>`;
 }
 function vMoves(){const k=view;
   if(!haveRet(k))return `<h2 class="disp">Stock moves</h2>${seg()}<p class="lead">Enter all 10 Round ${rnum(k)} returns in the Control room first.</p>`;
@@ -359,6 +364,7 @@ document.addEventListener("click",async e=>{
     bt.set(doc(db,"game/state"),{round:2,roundKey:"r2",phase:"setup",timerEnd:null},{merge:true});
     try{await bt.commit();view="r2";tab="control";toast("Round 2 is set up. Open the market when ready.")}catch(err){toast("Couldn't start Round 2: "+(err.code||"error"))}return}
   if("tstart" in d){const m=Math.max(1,Math.min(120,+$("#tmin").value||10));await setState({timerMin:m,timerEnd:Date.now()+m*60000});return}
+  if("defprices" in d){const pr=Object.assign({},G.prices||{});ROUNDS[k].forEach(s=>pr[s.code]=DEFAULT_PRICES[s.code]);await setState({prices:pr});toast("Default prices restored.");return}
   if("tstop" in d){await setState({timerEnd:null});return}
   if(d.unlockteam){try{await setDoc(doc(db,"portfolios",d.unlockteam,"rounds",k),{submitted:false,submittedAt:null},{merge:true})}catch(err){toast("Couldn't unlock.")}return}
   if("paste" in d){const nums=($("#paste").value.match(/-?\d+(\.\d+)?/g)||[]).map(Number);
@@ -373,6 +379,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("change",async e=>{const i=e.target,d=i.dataset;if(!isOrg)return;
   if(d.tname){const names=Object.assign({},G.teamNames||{});names[d.tname]=i.value.trim()||("Team "+d.tname.replace("team",""));await setState({teamNames:names});return}
+  if(d.price){if(G.phase!=="setup")return;const n=Number(i.value);if(!(n>0)){toast("Enter a price above 0.");return}const pr=Object.assign({},G.prices||{});pr[d.price]=Math.round(n*100)/100;await setState({prices:pr});return}
   if(d.ret){const k=G.roundKey,v=i.value.trim(),r=Object.assign({},SECRET[k]);if(v==="")delete r[d.ret];else{const n=Number(v);if(!Number.isFinite(n))return;r[d.ret]=n}
     try{await setDoc(doc(db,"secret/returns"),{[k]:r},{merge:true})}catch(err){toast("Couldn't save.")}}});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="code")$("[data-login]")?.click()});
