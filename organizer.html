@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Trading Floor — Organizer</title>
+<title>StockMarketSim — Organizer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -150,12 +150,18 @@ textarea{font:inherit;color:inherit;width:100%;min-height:90px;border:1px solid 
 .stat b{display:block;font-size:22px}
 
 .codein{font-size:22px;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+
+.roundtag{display:inline-block;background:var(--blue);color:#fff;font-weight:700;border-radius:6px;padding:4px 10px;font-size:14px;margin-left:8px}
+.seg{display:inline-flex;gap:4px;background:var(--panel2);padding:4px;border-radius:8px;margin-bottom:16px}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:6px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink)}
+.lbsec{margin-bottom:32px}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
   <div class="bar">
-    <div class="brand"><span class="disp">Trading Floor</span><small>Organizer</small></div>
+    <div class="brand"><span class="disp">StockMarketSim</span><small>Organizer</small><span class="roundtag" id="rtag" style="display:none"></span></div>
     <span class="who" id="who"></span>
     <div class="phase" id="phase"><span class="dot"></span><span id="phaseTxt"></span></div>
     <div class="clock disp" id="clock"></div>
@@ -189,19 +195,20 @@ textarea{font:inherit;color:inherit;width:100%;min-height:90px;border:1px solid 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, EMAIL_DOMAIN } from "./firebase-config.js";
 
-const STOCKS=[
- ["RELIANCE","Reliance Industries","Energy & Conglomerate"],["INFY","Infosys","IT Services"],["SBIN","State Bank of India","PSU Banking"],
- ["SUNPHARMA","Sun Pharma","Pharmaceuticals"],["LT","Larsen & Toubro","Infrastructure"],["MARUTI","Maruti Suzuki","Automobiles"],
- ["ETERNAL","Eternal (Zomato)","Consumer Internet"],["BHARTIARTL","Bharti Airtel","Telecom"],["ITC","ITC","FMCG & Conglomerate"],
- ["INDIGO","InterGlobe Aviation (IndiGo)","Aviation"],["HDFCBANK","HDFC Bank","Banking"],["ICICIBANK","ICICI Bank","Banking"],
- ["TCS","Tata Consultancy Services","IT Services"],["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],
- ["TITAN","Titan Company","Consumer Durables"],["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],
- ["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"],
-].map(([code,name,sector])=>({code,name,sector}));
-const CAPITAL=100000, STEP=1000;
+const ROUNDS={
+ r1:[["RELIANCE","Reliance Industries","Energy & Conglomerate"],["INFY","Infosys","IT Services"],["SBIN","State Bank of India","PSU Banking"],
+  ["SUNPHARMA","Sun Pharma","Pharmaceuticals"],["LT","Larsen & Toubro","Infrastructure"],["MARUTI","Maruti Suzuki","Automobiles"],
+  ["ETERNAL","Eternal (Zomato)","Consumer Internet"],["BHARTIARTL","Bharti Airtel","Telecom"],["ITC","ITC","FMCG & Conglomerate"],
+  ["INDIGO","InterGlobe Aviation (IndiGo)","Aviation"]],
+ r2:[["HDFCBANK","HDFC Bank","Banking"],["ICICIBANK","ICICI Bank","Banking"],["TCS","Tata Consultancy Services","IT Services"],
+  ["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],["TITAN","Titan Company","Consumer Durables"],
+  ["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"]]
+};
+for(const k in ROUNDS)ROUNDS[k]=ROUNDS[k].map(([code,name,sector])=>({code,name,sector}));
+const START=100000, STEP=1000, RK=["r1","r2"];
 const TEAM_IDS=["team1","team2","team3","team4","team5","team6","team7","team8"];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -209,13 +216,14 @@ const inr=n=>(n<0?"−₹":"₹")+Math.abs(Math.round(n)).toLocaleString("en-IN"
 const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.abs(n).toFixed(0))+"%";
 const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
 const cls=n=>n>0?"up":n<0?"down":"flat";
+const rnum=rk=>rk==="r2"?2:1;
 if(firebaseConfig.apiKey.startsWith("PASTE")){
   window.__started=true;
   document.querySelector("#app").innerHTML=`<div class="notice bad" style="margin-top:24px"><b>Setup isn't finished.</b> Paste your Firebase config into firebase-config.js, then reload.</div>`;
   throw new Error("firebase-config.js not filled in");
 }
-const fb=initializeApp(firebaseConfig,"organizer"), auth=getAuth(fb), db=getFirestore(fb);
-let G={phase:"setup",teamNames:{},timerEnd:null,timerMin:10}, RES={rows:[],total:8};
+let G={round:1,roundKey:"r1",phase:"setup",teamNames:{},timerEnd:null,timerMin:10}, RES={};
+const normG=d=>Object.assign({round:1,roundKey:"r1",phase:"setup",teamNames:{},timerEnd:null,timerMin:10},d||{});
 const teamName=id=>(G.teamNames&&G.teamNames[id])||("Team "+id.replace("team",""));
 const PHASE={setup:"Pre-market",open:"Market open",closed:"Market closed",revealed:"Results live"};
 function tickClock(){const el=$("#clock");if(!G.timerEnd||G.phase!=="open"){el.textContent="";return}
@@ -237,83 +245,97 @@ function vLoginBox(title,hint){
   <div class="field"><label for="code">Access code</label><input id="code" class="codein" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
   <button class="btn wide" data-login>Enter</button><p id="lerr" class="errs" style="list-style:none;padding:0" role="alert"></p></div>`;
 }
-let lastShown=0;
-function leaderRows(rows,total,opts={}){
-  rows=[...rows].sort((a,b)=>a.rank-b.rank||b.final-a.final);const hidden=total-rows.length;
-  const pop=rows.length>lastShown;lastShown=rows.length;if(pop&&hidden===0&&rows.length)setTimeout(confetti,200);
+const seen={};
+function leaderRows(key,rows,total,opts={}){
+  rows=[...(rows||[])].sort((a,b)=>a.rank-b.rank||b.final-a.final);const hidden=Math.max(0,total-rows.length);
+  const pop=rows.length>(seen[key]??rows.length);seen[key]=rows.length;
+  if(pop&&hidden===0&&rows.length)setTimeout(confetti,200);
   const H=Array.from({length:hidden},()=>`<div class="lbrow hidden"><div class="rk disp">?</div><div><div class="tn disp">Hidden</div></div><div class="val disp">₹ —</div></div>`).join("");
-  const R=rows.map((x,k)=>`<div class="lbrow ${x.rank===1?"first":""} ${pop&&k===0?"pop":""}"><div class="rk disp">${x.rank}</div><div><div class="tn disp">${esc(x.name)}</div>${opts.detail?`<div class="sub ${cls(x.pl)}">${x.pl>=0?"+":""}${inr(x.pl)} (${pct2(x.ret)})${x.counted?"":" · no trades locked"}</div>`:""}</div><div class="val disp">${inr(x.final)}</div></div>`).join("");
+  const R=rows.map((x,k)=>`<div class="lbrow ${x.rank===1?"first":""} ${pop&&k===0?"pop":""}"><div class="rk disp">${x.rank}</div><div><div class="tn disp">${esc(x.name)}</div>${opts.detail?`<div class="sub ${cls(x.pl)}">Started ${inr(x.start)} · ${x.pl>=0?"+":""}${inr(x.pl)} (${pct2(x.ret)})${x.counted?"":" · no trades locked"}</div>`:""}</div><div class="val disp">${inr(x.final)}</div></div>`).join("");
   return `<div class="lb">${H}${R}</div>`;
 }
 
-let isOrg=false, tab="control", unsub=[], ALL={}, SECRET={}, busy=false;
+const fb=initializeApp(firebaseConfig,"organizer"), auth=getAuth(fb), db=getFirestore(fb);
+let isOrg=false, tab="control", view="r1", unsub=[], busy=false, P={}, CAPS={}, SECRET={r1:{},r2:{}};
 onAuthStateChanged(auth,async u=>{
   unsub.forEach(f=>f());unsub=[];isOrg=false;
   if(u){if((u.email||"").split("@")[0]==="organizer"){isOrg=true;listen()}else{await signOut(auth);return}}
   render();
 });
 function listen(){
-  unsub.push(onSnapshot(doc(db,"game/state"),s=>{G=Object.assign({phase:"setup",teamNames:{},timerEnd:null,timerMin:10},s.data()||{});safeRender()},()=>{}));
-  unsub.push(onSnapshot(doc(db,"public/results"),s=>{RES=Object.assign({rows:[],total:8},s.data()||{});safeRender()},()=>{}));
-  unsub.push(onSnapshot(collection(db,"portfolios"),q=>{ALL={};q.forEach(d=>ALL[d.id]=d.data());safeRender()},()=>{}));
-  unsub.push(onSnapshot(doc(db,"secret/returns"),s=>{SECRET=(s.data()||{}).returns||{};safeRender()},()=>{}));
+  let lastRound=null;
+  unsub.push(onSnapshot(doc(db,"game/state"),s=>{G=normG(s.data());if(lastRound!==G.round)view=G.roundKey;lastRound=G.round;safeRender()},()=>{}));
+  unsub.push(onSnapshot(doc(db,"public/results"),s=>{RES=s.data()||{};safeRender()},()=>{}));
+  unsub.push(onSnapshot(doc(db,"secret/returns"),s=>{const d=s.data()||{};SECRET={r1:d.r1||{},r2:d.r2||{}};safeRender()},()=>{}));
+  for(const t of TEAM_IDS){
+    unsub.push(onSnapshot(doc(db,"capital",t),s=>{CAPS[t]=s.data()||{};safeRender()},()=>{}));
+    for(const k of RK)unsub.push(onSnapshot(doc(db,"portfolios",t,"rounds",k),s=>{P[t+"/"+k]=s.data()||{};safeRender()},()=>{}));
+  }
 }
-const haveRet=()=>STOCKS.every(s=>SECRET[s.code]!==undefined);
-function calc(p){p=p||{};const sub=!!p.submitted;let invested=0,value=0;const rows=[];
-  for(const s of STOCKS){const a=Number((p.alloc||{})[s.code]||0);if(!a)continue;const r=Number(SECRET[s.code]||0),v=a*(1+r/100);rows.push({s,a,r,v});if(sub){invested+=a;value+=v}}
-  const cash=CAPITAL-invested,final=cash+value;return {rows,cash,final,pl:final-CAPITAL,ret:(final-CAPITAL)/CAPITAL*100,counted:sub}}
-function ranking(){const list=TEAM_IDS.map(id=>({id,name:teamName(id),at:(ALL[id]||{}).submittedAt||9e15,...calc(ALL[id])}));
+const haveRet=k=>ROUNDS[k].every(s=>SECRET[k][s.code]!==undefined);
+const capOf=(t,k)=>k==="r1"?START:(CAPS[t]||{}).r2;
+function calc(t,k){const p=P[t+"/"+k]||{},sub=!!p.submitted,cap=capOf(t,k)??START;let invested=0,value=0;const rows=[];
+  for(const s of ROUNDS[k]){const a=Number((p.alloc||{})[s.code]||0);if(!a)continue;const r=Number(SECRET[k][s.code]||0),v=a*(1+r/100);rows.push({s,a,r,v});if(sub){invested+=a;value+=v}}
+  const cash=cap-invested,final=cash+value;return {rows,cash,cap,final,pl:final-cap,ret:(final-cap)/cap*100,counted:sub,submitted:sub,at:p.submittedAt||9e15}}
+function ranking(k){const list=TEAM_IDS.map(t=>({t,name:teamName(t),...calc(t,k)}));
   list.sort((a,b)=>Math.round(b.final)-Math.round(a.final)||a.at-b.at);let rank=0,prev=null;
-  list.forEach((x,k)=>{const f=Math.round(x.final);if(prev===null||f!==prev)rank=k+1;x.rank=rank;prev=f});
-  return list.map(x=>({name:x.name,rank:x.rank,final:Math.round(x.final),pl:Math.round(x.pl),ret:x.ret,counted:x.counted}))}
-async function orgSet(path,data){try{await setDoc(doc(db,path),data,{merge:true})}catch(e){toast("Couldn't save: "+(e.code||"error"))}}
+  list.forEach((x,i)=>{const f=Math.round(x.final);if(prev===null||f!==prev)rank=i+1;x.rank=rank;prev=f});
+  return list.map(x=>({t:x.t,name:x.name,rank:x.rank,final:Math.round(x.final),start:Math.round(x.cap),pl:Math.round(x.pl),ret:x.ret,counted:x.counted}))}
+async function setState(extra){try{await setDoc(doc(db,"game/state"),{round:G.round,roundKey:G.roundKey,...extra},{merge:true})}catch(e){toast("Couldn't save: "+(e.code||"error"))}}
 function render(){
   window.__started=true;
   $("#phase").className="phase "+G.phase;$("#phaseTxt").textContent=isOrg?PHASE[G.phase]:"";
+  $("#rtag").textContent=isOrg?"Round "+G.round:"";$("#rtag").style.display=isOrg?"":"none";
   $("#who").innerHTML=isOrg?`Organizer · <button class="linkbtn" data-logout>Log out</button>`:"";
-  $("#tabs").innerHTML=isOrg?[["control","Control room"],["all","All portfolios"],["moves","Stock moves"],["leader","Leaderboard"]].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}</button>`).join(""):"";
+  $("#tabs").innerHTML=isOrg?[["control","Control room"],["all","All portfolios"],["moves","Stock moves"],["leader","Leaderboards"]].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}</button>`).join(""):"";
   $("#app").innerHTML=!isOrg?vLoginBox("Organizer login","Enter the organizer access code."):({control:vControl,all:vAll,moves:vMoves,leader:vLeader}[tab])();
   tickClock();
 }
+function seg(){return `<div class="seg" role="group" aria-label="Round">${RK.map(k=>`<button data-view="${k}" aria-pressed="${view===k}" ${k==="r2"&&G.round<2?"disabled":""}>Round ${rnum(k)}</button>`).join("")}</div>`}
 function vControl(){
-  const steps=["setup","open","closed","revealed"].map((p,i)=>`<span class="${G.phase===p?"on":""}">${["Pre-market","Trading","Closed","Results"][i]}</span>`).join("");
-  const locked=TEAM_IDS.filter(id=>(ALL[id]||{}).submitted).length, shown=(RES.rows||[]).length;
+  const k=G.roundKey,steps=["setup","open","closed","revealed"].map((p,i)=>`<span class="${G.phase===p?"on":""}">${["Pre-market","Trading","Closed","Results"][i]}</span>`).join("");
+  const locked=TEAM_IDS.filter(t=>(P[t+"/"+k]||{}).submitted).length, shown=((RES[k]||{}).rows||[]).length, done=G.phase==="revealed"&&shown>=8;
+  let actions="";
+  if(G.phase==="setup")actions=`<button class="btn green" data-phase="open">Open Round ${G.round} market</button>`;
+  else if(G.phase==="open")actions=`<button class="btn red" data-phase="closed">Close Round ${G.round} market</button>`;
+  else if(G.phase==="closed")actions=`<button class="btn" data-reveal ${haveRet(k)?"":"disabled"}>Reveal Round ${G.round} leaderboard</button>${haveRet(k)?"":`<span class="sec">Enter all 10 Round ${G.round} returns first.</span>`}`;
+  else if(!done)actions=`<button class="btn" data-next>Reveal next position</button><button class="btn ghost" data-all>Reveal all</button>`;
+  else if(G.round===1)actions=`<button class="btn green" data-round2>Start Round 2</button><span class="sec">Each team's Round 1 final value becomes its Round 2 starting money.</span>`;
+  else actions=`<span class="sec"><b>Competition complete.</b> The final leaderboard is live for all teams.</span>`;
   return `<h2 class="disp">Control room</h2><p class="lead">Only the organizer code opens this page. Teams never see stock moves, other teams' portfolios, or anything here.</p><div class="steps">${steps}</div>
   <div class="admin">
-   <div class="card"><h3 class="disp">Run the round</h3><p>${locked} of 8 teams have locked trades.</p>
-    <div class="btns">
-     ${G.phase==="setup"?`<button class="btn green" data-phase="open">Open the market</button>`:""}
-     ${G.phase==="open"?`<button class="btn red" data-phase="closed">Close the market</button>`:""}
-     ${G.phase==="closed"?`<button class="btn" data-reveal ${haveRet()?"":"disabled"}>Reveal leaderboard</button>${haveRet()?"":`<span class="sec">Enter all 20 returns first.</span>`}`:""}
-     ${G.phase==="revealed"?`<button class="btn" data-next ${shown>=8?"disabled":""}>Reveal next position</button><button class="btn ghost" data-all ${shown>=8?"disabled":""}>Reveal all</button>`:""}
-    </div>
+   <div class="card"><h3 class="disp">Round ${G.round} of 2</h3><p>${locked} of 8 teams have locked Round ${G.round} trades.</p>
+    <div class="btns">${actions}</div>
     <h3 class="disp" style="margin-top:18px">Trading timer</h3>
     <div class="field"><label for="tmin">Minutes</label><input id="tmin" type="number" min="1" max="120" value="${G.timerMin||10}"></div>
     <div class="btns"><button class="btn" data-tstart>Start timer</button><button class="btn ghost" data-tstop>Stop timer</button></div></div>
    <div class="card"><h3 class="disp">Teams</h3>
-    ${TEAM_IDS.map(id=>{const p=ALL[id]||{};return `<div class="field"><label for="tn-${id}">Team ${id.replace("team","")} · ${p.submitted?"locked":"not locked"}</label><div style="display:flex;gap:6px"><input id="tn-${id}" data-tname="${id}" value="${esc(teamName(id))}" maxlength="24" style="flex:1">${p.submitted&&G.phase==="open"?`<button class="btn ghost" data-unlockteam="${id}">Unlock</button>`:""}</div></div>`}).join("")}</div>
-   <div class="card"><h3 class="disp">Stock returns (%)</h3>
-    <p class="sec" style="margin-top:0">Never shown to teams. Paste the 20 numbers from the workbook's return column (same order), or type them one by one.</p>
-    ${G.phase==="revealed"?"":`<div class="field"><label for="paste">Paste returns</label><textarea id="paste" placeholder="-4&#10;5&#10;-6&#10;..."></textarea></div><div class="btns" style="margin-bottom:10px"><button class="btn ghost" data-paste>Use pasted numbers</button></div>`}
-    ${STOCKS.map(s=>`<div class="retrow"><label for="r-${s.code}">${esc(s.name)}</label><input id="r-${s.code}" data-ret="${s.code}" inputmode="decimal" value="${SECRET[s.code]??""}" ${G.phase==="revealed"?"disabled":""}></div>`).join("")}</div>
-   <div class="card"><h3 class="disp">Start over</h3><p class="sec">Clears every team's trades, the timer and the leaderboard. Team names stay.</p><button class="btn red" data-reset>Reset round</button></div>
+    ${TEAM_IDS.map(t=>{const p=P[t+"/"+k]||{};return `<div class="field"><label for="tn-${t}">Team ${t.replace("team","")} · ${p.submitted?"locked":"not locked"}${k==="r2"&&capOf(t,"r2")!=null?" · starts with "+inr(capOf(t,"r2")):""}</label><div style="display:flex;gap:6px"><input id="tn-${t}" data-tname="${t}" value="${esc(teamName(t))}" maxlength="24" style="flex:1">${p.submitted&&G.phase==="open"?`<button class="btn ghost" data-unlockteam="${t}">Unlock</button>`:""}</div></div>`}).join("")}</div>
+   <div class="card"><h3 class="disp">Round ${G.round} returns (%)</h3>
+    <p class="sec" style="margin-top:0">Never shown to teams. Paste the 10 numbers for Round ${G.round} from the answer key (same order), or type them one by one.</p>
+    ${G.phase==="revealed"?"":`<div class="field"><label for="paste">Paste 10 returns</label><textarea id="paste" placeholder="-4&#10;5&#10;-6&#10;..."></textarea></div><div class="btns" style="margin-bottom:10px"><button class="btn ghost" data-paste>Use pasted numbers</button></div>`}
+    ${ROUNDS[k].map(s=>`<div class="retrow"><label for="r-${s.code}">${esc(s.name)}</label><input id="r-${s.code}" data-ret="${s.code}" inputmode="decimal" value="${SECRET[k][s.code]??""}" ${G.phase==="revealed"?"disabled":""}></div>`).join("")}</div>
+   <div class="card"><h3 class="disp">Start over</h3><p class="sec">Clears both rounds: every team's trades, starting money, returns and leaderboards. Team names stay. Press this once before the event to set everything up.</p><button class="btn red" data-reset>Reset whole competition</button></div>
   </div>`;
 }
-function vAll(){const show=haveRet();
-  return `<h2 class="disp">All portfolios</h2><p class="lead">${show?"Values use the returns you've entered, even before reveal.":"Enter returns in the Control room to see values."}</p>
-  <div class="pcards">${TEAM_IDS.map(id=>{const p=ALL[id]||{},c=calc(p);
+function vAll(){const k=view,show=haveRet(k);
+  if(k==="r2"&&G.round<2)view="r1";
+  return `<h2 class="disp">All portfolios</h2>${seg()}<p class="lead">${show?"Values use the returns you've entered, even before reveal.":`Enter Round ${rnum(k)} returns to see values.`}</p>
+  <div class="pcards">${TEAM_IDS.map(t=>{const c=calc(t,k),p=P[t+"/"+k]||{};
     const body=c.rows.length?c.rows.map(x=>`<tr><td>${esc(x.s.name)}${c.counted?"":` <span class="sec">(draft)</span>`}</td><td>${inr(x.a)}</td><td class="${show?cls(x.r):"flat"}">${show?pct(x.r):"—"}</td><td>${show&&c.counted?inr(x.v):"—"}</td></tr>`).join(""):`<tr><td colspan="4" style="color:var(--muted)">No stocks.</td></tr>`;
-    return `<div class="pcard"><h3 class="disp">${esc(teamName(id))}</h3><p class="sec" style="margin:0 0 6px">${p.submitted?"Locked":"Not locked (counts as all cash at close)"}</p><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th><th>Move</th><th>Value</th></tr></thead><tbody>${body}<tr><td>Cash</td><td>${inr(c.cash)}</td><td class="flat">0%</td><td>${inr(c.cash)}</td></tr></tbody>
-    <tfoot><tr><td>Portfolio</td><td>${inr(CAPITAL)}</td><td class="${show?cls(c.ret):"flat"}">${show?pct2(c.ret):""}</td><td>${show?inr(c.final):"—"}</td></tr></tfoot></table></div></div>`}).join("")}</div>`;
+    return `<div class="pcard"><h3 class="disp">${esc(teamName(t))}</h3><p class="sec" style="margin:0 0 6px">${p.submitted?"Locked":"Not locked (counts as all cash at close)"} · started with ${inr(c.cap)}</p><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th><th>Move</th><th>Value</th></tr></thead><tbody>${body}<tr><td>Cash</td><td>${inr(c.cash)}</td><td class="flat">0%</td><td>${inr(c.cash)}</td></tr></tbody>
+    <tfoot><tr><td>Portfolio</td><td>${inr(c.cap)}</td><td class="${show?cls(c.ret):"flat"}">${show?pct2(c.ret):""}</td><td>${show?inr(c.final):"—"}</td></tr></tfoot></table></div></div>`}).join("")}</div>`;
 }
-function vMoves(){if(!haveRet())return `<h2 class="disp">Stock moves</h2><p class="lead">Enter all 20 returns in the Control room first.</p>`;
-  const list=[...STOCKS].sort((a,b)=>SECRET[b.code]-SECRET[a.code]),max=Math.max(1,...STOCKS.map(s=>Math.abs(SECRET[s.code])));
-  return `<h2 class="disp">Stock moves</h2><p class="lead">Organizer only. Teams never see this.</p><div class="board">${list.map(s=>{const r=SECRET[s.code];
+function vMoves(){const k=view;
+  if(!haveRet(k))return `<h2 class="disp">Stock moves</h2>${seg()}<p class="lead">Enter all 10 Round ${rnum(k)} returns in the Control room first.</p>`;
+  const list=[...ROUNDS[k]].sort((a,b)=>SECRET[k][b.code]-SECRET[k][a.code]),max=Math.max(1,...ROUNDS[k].map(s=>Math.abs(SECRET[k][s.code])));
+  return `<h2 class="disp">Stock moves</h2>${seg()}<p class="lead">Organizer only. Teams never see this.</p><div class="board">${list.map(s=>{const r=SECRET[k][s.code];
     return `<div class="tile"><b>${esc(s.name)}</b><div class="sec">${esc(s.sector)}</div><div class="pct disp ${cls(r)}">${pct(r)}</div><div class="barbg"><div class="barfg" style="width:${Math.abs(r)/max*100}%;background:${r>=0?"var(--up)":"var(--down)"}"></div></div></div>`}).join("")}</div>`}
-function vLeader(){
-  if(G.phase==="revealed")return `<h2 class="disp">Leaderboard</h2><p class="lead">What teams see right now. ${RES.rows.length<8?`${8-RES.rows.length} still hidden.`:"All positions revealed."}</p>`+leaderRows(RES.rows,RES.total,{detail:false});
-  if(!haveRet())return `<h2 class="disp">Leaderboard</h2><p class="lead">Enter returns to preview the ranking.</p>`;
-  lastShown=99;return `<h2 class="disp">Leaderboard preview</h2><p class="lead">Only you can see this. Teams see nothing until you reveal.</p>`+leaderRows(ranking(),8,{detail:true});
+function vLeader(){const k=view,r=RES[k];
+  const head=`<h2 class="disp">Leaderboards</h2>${seg()}`;
+  if(r&&r.revealed)return head+`<p class="lead">What teams see right now for Round ${rnum(k)}. ${(r.rows||[]).length<8?`${8-(r.rows||[]).length} still hidden.`:"All positions revealed."}</p>`+leaderRows("org-"+k,r.rows,r.total||8);
+  if(!haveRet(k))return head+`<p class="lead">Enter Round ${rnum(k)} returns to preview the ranking.</p>`;
+  return head+`<p class="lead">Preview for Round ${rnum(k)}. Only you can see this until you reveal.</p>`+leaderRows("prev-"+k,ranking(k),8,{detail:true});
 }
 document.addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b||b.disabled)return;const d=b.dataset;
@@ -321,29 +343,38 @@ document.addEventListener("click",async e=>{
     if(!/^ORG-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)){$("#lerr").textContent="Code not recognised.";return}
     busy=true;b.disabled=true;try{await signInWithEmailAndPassword(auth,"organizer@"+EMAIL_DOMAIN,code)}catch(err){$("#lerr").textContent=err.code==="auth/too-many-requests"?"Too many tries. Wait a minute.":"Code not recognised.";b.disabled=false}busy=false;return}
   if("logout" in d){await signOut(auth);return}
-  if(d.tab){if(d.tab==="leader")lastShown=G.phase==="revealed"?(RES.rows||[]).length:0;tab=d.tab;render();return}
-  if(!isOrg)return;
-  if(d.phase){if(d.phase==="closed"&&!confirm("Close the market? Teams that haven't locked trades will hold all cash."))return;
-    await orgSet("game/state",{phase:d.phase,...(d.phase==="closed"?{timerEnd:null}:{})});return}
-  if("reveal" in d){if(!confirm("Show the leaderboard to teams? Positions are revealed one at a time from 8th place."))return;
-    await setDoc(doc(db,"public/results"),{rows:[],total:8});await orgSet("game/state",{phase:"revealed"});lastShown=0;tab="leader";render();return}
-  if("next" in d||"all" in d){const r=ranking().map(x=>({name:x.name,rank:x.rank,final:x.final}));const k=("all" in d)?8:Math.min(8,(RES.rows||[]).length+1);
-    await orgSet("public/results",{rows:r.slice(8-k)});tab="leader";render();return}
-  if("tstart" in d){const m=Math.max(1,Math.min(120,+$("#tmin").value||10));await orgSet("game/state",{timerMin:m,timerEnd:Date.now()+m*60000});return}
-  if("tstop" in d){await orgSet("game/state",{timerEnd:null});return}
-  if(d.unlockteam){await orgSet("portfolios/"+d.unlockteam,{submitted:false,submittedAt:null});return}
+  if(d.tab){tab=d.tab;render();return}
+  if(d.view){view=d.view;render();return}
+  if(!isOrg)return;const k=G.roundKey;
+  if(d.phase){if(d.phase==="closed"&&!confirm("Close the Round "+G.round+" market? Teams that haven't locked trades will hold all cash this round."))return;
+    await setState({phase:d.phase,...(d.phase==="closed"?{timerEnd:null}:{})});return}
+  if("reveal" in d){if(!confirm("Show the Round "+G.round+" leaderboard to teams? Positions are revealed one at a time from 8th place."))return;
+    try{await setDoc(doc(db,"public/results"),{[k]:{rows:[],total:8,revealed:true}},{merge:true})}catch(err){toast("Couldn't reveal.");return}
+    await setState({phase:"revealed"});tab="leader";view=k;render();return}
+  if("next" in d||"all" in d){const r=ranking(k).map(x=>({name:x.name,rank:x.rank,final:x.final}));const n=("all" in d)?8:Math.min(8,((RES[k]||{}).rows||[]).length+1);
+    try{await setDoc(doc(db,"public/results"),{[k]:{rows:r.slice(8-n),total:8,revealed:true}},{merge:true})}catch(err){toast("Couldn't reveal.")}tab="leader";view=k;render();return}
+  if("round2" in d){if(!confirm("Start Round 2? Each team's Round 1 final value becomes its Round 2 starting money."))return;
+    const r=ranking("r1"),bt=writeBatch(db);
+    r.forEach(x=>{bt.set(doc(db,"capital",x.t),{r1:START,r2:x.final});bt.set(doc(db,"portfolios",x.t,"rounds","r2"),{alloc:{},submitted:false,submittedAt:null})});
+    bt.set(doc(db,"game/state"),{round:2,roundKey:"r2",phase:"setup",timerEnd:null},{merge:true});
+    try{await bt.commit();view="r2";tab="control";toast("Round 2 is set up. Open the market when ready.")}catch(err){toast("Couldn't start Round 2: "+(err.code||"error"))}return}
+  if("tstart" in d){const m=Math.max(1,Math.min(120,+$("#tmin").value||10));await setState({timerMin:m,timerEnd:Date.now()+m*60000});return}
+  if("tstop" in d){await setState({timerEnd:null});return}
+  if(d.unlockteam){try{await setDoc(doc(db,"portfolios",d.unlockteam,"rounds",k),{submitted:false,submittedAt:null},{merge:true})}catch(err){toast("Couldn't unlock.")}return}
   if("paste" in d){const nums=($("#paste").value.match(/-?\d+(\.\d+)?/g)||[]).map(Number);
-    if(nums.length!==20){toast("Found "+nums.length+" numbers. Paste exactly 20, in workbook order.");return}
-    const r={};STOCKS.forEach((s,i)=>r[s.code]=nums[i]);try{await setDoc(doc(db,"secret/returns"),{returns:r});toast("Returns saved.")}catch(err){toast("Couldn't save returns.")}return}
-  if("reset" in d){if(!confirm("Reset the whole round? This clears every team's trades and the leaderboard."))return;
-    const bt=writeBatch(db);TEAM_IDS.forEach(id=>bt.set(doc(db,"portfolios",id),{alloc:{},submitted:false,submittedAt:null}));
-    bt.set(doc(db,"public/results"),{rows:[],total:8});bt.set(doc(db,"game/state"),{phase:"setup",timerEnd:null},{merge:true});
-    try{await bt.commit();lastShown=0;toast("Round reset.")}catch(err){toast("Reset failed: "+(err.code||"error"))}return}
+    if(nums.length!==10){toast("Found "+nums.length+" numbers. Paste exactly 10, in answer-key order.");return}
+    const r={};ROUNDS[k].forEach((s,i)=>r[s.code]=nums[i]);try{await setDoc(doc(db,"secret/returns"),{[k]:r},{merge:true});toast("Round "+G.round+" returns saved.")}catch(err){toast("Couldn't save returns.")}return}
+  if("reset" in d){if(!confirm("Reset the WHOLE competition? This clears both rounds: all trades, starting money, returns and leaderboards."))return;
+    const bt=writeBatch(db);
+    TEAM_IDS.forEach(t=>{bt.set(doc(db,"capital",t),{r1:START});RK.forEach(x=>bt.set(doc(db,"portfolios",t,"rounds",x),{alloc:{},submitted:false,submittedAt:null}))});
+    bt.set(doc(db,"public/results"),{});bt.set(doc(db,"secret/returns"),{r1:{},r2:{}});
+    bt.set(doc(db,"game/state"),{round:1,roundKey:"r1",phase:"setup",timerEnd:null},{merge:true});
+    try{await bt.commit();view="r1";toast("Competition reset. Ready for Round 1.")}catch(err){toast("Reset failed: "+(err.code||"error"))}return}
 });
 document.addEventListener("change",async e=>{const i=e.target,d=i.dataset;if(!isOrg)return;
-  if(d.tname){const names=Object.assign({},G.teamNames||{});names[d.tname]=i.value.trim()||("Team "+d.tname.replace("team",""));await orgSet("game/state",{teamNames:names});return}
-  if(d.ret){const v=i.value.trim(),r=Object.assign({},SECRET);if(v==="")delete r[d.ret];else{const n=Number(v);if(!Number.isFinite(n))return;r[d.ret]=n}
-    try{await setDoc(doc(db,"secret/returns"),{returns:r})}catch(err){toast("Couldn't save.")}}});
+  if(d.tname){const names=Object.assign({},G.teamNames||{});names[d.tname]=i.value.trim()||("Team "+d.tname.replace("team",""));await setState({teamNames:names});return}
+  if(d.ret){const k=G.roundKey,v=i.value.trim(),r=Object.assign({},SECRET[k]);if(v==="")delete r[d.ret];else{const n=Number(v);if(!Number.isFinite(n))return;r[d.ret]=n}
+    try{await setDoc(doc(db,"secret/returns"),{[k]:r},{merge:true})}catch(err){toast("Couldn't save.")}}});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="code")$("[data-login]")?.click()});
 render();
 </script>

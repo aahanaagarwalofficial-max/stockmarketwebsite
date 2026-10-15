@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-<title>Trading Floor — Round 1</title>
+<title>StockMarketSim</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -150,12 +150,18 @@ textarea{font:inherit;color:inherit;width:100%;min-height:90px;border:1px solid 
 .stat b{display:block;font-size:22px}
 
 .codein{font-size:22px;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+
+.roundtag{display:inline-block;background:var(--blue);color:#fff;font-weight:700;border-radius:6px;padding:4px 10px;font-size:14px;margin-left:8px}
+.seg{display:inline-flex;gap:4px;background:var(--panel2);padding:4px;border-radius:8px;margin-bottom:16px}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:6px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink)}
+.lbsec{margin-bottom:32px}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
   <div class="bar">
-    <div class="brand"><span class="disp">Trading Floor</span><small>Round 1 · Stock Market Simulation</small></div>
+    <div class="brand"><span class="disp">StockMarketSim</span><small>Trading Floor</small><span class="roundtag" id="rtag" style="display:none"></span></div>
     <span class="who" id="who"></span>
     <div class="phase" id="phase"><span class="dot"></span><span id="phaseTxt"></span></div>
     <div class="clock disp" id="clock"></div>
@@ -189,19 +195,20 @@ textarea{font:inherit;color:inherit;width:100%;min-height:90px;border:1px solid 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, EMAIL_DOMAIN } from "./firebase-config.js";
 
-const STOCKS=[
- ["RELIANCE","Reliance Industries","Energy & Conglomerate"],["INFY","Infosys","IT Services"],["SBIN","State Bank of India","PSU Banking"],
- ["SUNPHARMA","Sun Pharma","Pharmaceuticals"],["LT","Larsen & Toubro","Infrastructure"],["MARUTI","Maruti Suzuki","Automobiles"],
- ["ETERNAL","Eternal (Zomato)","Consumer Internet"],["BHARTIARTL","Bharti Airtel","Telecom"],["ITC","ITC","FMCG & Conglomerate"],
- ["INDIGO","InterGlobe Aviation (IndiGo)","Aviation"],["HDFCBANK","HDFC Bank","Banking"],["ICICIBANK","ICICI Bank","Banking"],
- ["TCS","Tata Consultancy Services","IT Services"],["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],
- ["TITAN","Titan Company","Consumer Durables"],["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],
- ["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"],
-].map(([code,name,sector])=>({code,name,sector}));
-const CAPITAL=100000, STEP=1000;
+const ROUNDS={
+ r1:[["RELIANCE","Reliance Industries","Energy & Conglomerate"],["INFY","Infosys","IT Services"],["SBIN","State Bank of India","PSU Banking"],
+  ["SUNPHARMA","Sun Pharma","Pharmaceuticals"],["LT","Larsen & Toubro","Infrastructure"],["MARUTI","Maruti Suzuki","Automobiles"],
+  ["ETERNAL","Eternal (Zomato)","Consumer Internet"],["BHARTIARTL","Bharti Airtel","Telecom"],["ITC","ITC","FMCG & Conglomerate"],
+  ["INDIGO","InterGlobe Aviation (IndiGo)","Aviation"]],
+ r2:[["HDFCBANK","HDFC Bank","Banking"],["ICICIBANK","ICICI Bank","Banking"],["TCS","Tata Consultancy Services","IT Services"],
+  ["HINDUNILVR","Hindustan Unilever","FMCG"],["M&M","Mahindra & Mahindra","Automobiles"],["TITAN","Titan Company","Consumer Durables"],
+  ["NTPC","NTPC","Power"],["TATASTEEL","Tata Steel","Metals"],["BEL","Bharat Electronics","Defence"],["ASIANPAINT","Asian Paints","Paints"]]
+};
+for(const k in ROUNDS)ROUNDS[k]=ROUNDS[k].map(([code,name,sector])=>({code,name,sector}));
+const START=100000, STEP=1000, RK=["r1","r2"];
 const TEAM_IDS=["team1","team2","team3","team4","team5","team6","team7","team8"];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -209,13 +216,14 @@ const inr=n=>(n<0?"−₹":"₹")+Math.abs(Math.round(n)).toLocaleString("en-IN"
 const pct=n=>(n>0?"+":n<0?"−":"")+(Math.abs(n)%1?Math.abs(n).toFixed(1):Math.abs(n).toFixed(0))+"%";
 const pct2=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
 const cls=n=>n>0?"up":n<0?"down":"flat";
+const rnum=rk=>rk==="r2"?2:1;
 if(firebaseConfig.apiKey.startsWith("PASTE")){
   window.__started=true;
   document.querySelector("#app").innerHTML=`<div class="notice bad" style="margin-top:24px"><b>Setup isn't finished.</b> Paste your Firebase config into firebase-config.js, then reload.</div>`;
   throw new Error("firebase-config.js not filled in");
 }
-const fb=initializeApp(firebaseConfig), auth=getAuth(fb), db=getFirestore(fb);
-let G={phase:"setup",teamNames:{},timerEnd:null,timerMin:10}, RES={rows:[],total:8};
+let G={round:1,roundKey:"r1",phase:"setup",teamNames:{},timerEnd:null,timerMin:10}, RES={};
+const normG=d=>Object.assign({round:1,roundKey:"r1",phase:"setup",teamNames:{},timerEnd:null,timerMin:10},d||{});
 const teamName=id=>(G.teamNames&&G.teamNames[id])||("Team "+id.replace("team",""));
 const PHASE={setup:"Pre-market",open:"Market open",closed:"Market closed",revealed:"Results live"};
 function tickClock(){const el=$("#clock");if(!G.timerEnd||G.phase!=="open"){el.textContent="";return}
@@ -237,68 +245,87 @@ function vLoginBox(title,hint){
   <div class="field"><label for="code">Access code</label><input id="code" class="codein" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
   <button class="btn wide" data-login>Enter</button><p id="lerr" class="errs" style="list-style:none;padding:0" role="alert"></p></div>`;
 }
-let lastShown=0;
-function leaderRows(rows,total,opts={}){
-  rows=[...rows].sort((a,b)=>a.rank-b.rank||b.final-a.final);const hidden=total-rows.length;
-  const pop=rows.length>lastShown;lastShown=rows.length;if(pop&&hidden===0&&rows.length)setTimeout(confetti,200);
+const seen={};
+function leaderRows(key,rows,total,opts={}){
+  rows=[...(rows||[])].sort((a,b)=>a.rank-b.rank||b.final-a.final);const hidden=Math.max(0,total-rows.length);
+  const pop=rows.length>(seen[key]??rows.length);seen[key]=rows.length;
+  if(pop&&hidden===0&&rows.length)setTimeout(confetti,200);
   const H=Array.from({length:hidden},()=>`<div class="lbrow hidden"><div class="rk disp">?</div><div><div class="tn disp">Hidden</div></div><div class="val disp">₹ —</div></div>`).join("");
-  const R=rows.map((x,k)=>`<div class="lbrow ${x.rank===1?"first":""} ${pop&&k===0?"pop":""}"><div class="rk disp">${x.rank}</div><div><div class="tn disp">${esc(x.name)}</div>${opts.detail?`<div class="sub ${cls(x.pl)}">${x.pl>=0?"+":""}${inr(x.pl)} (${pct2(x.ret)})${x.counted?"":" · no trades locked"}</div>`:""}</div><div class="val disp">${inr(x.final)}</div></div>`).join("");
+  const R=rows.map((x,k)=>`<div class="lbrow ${x.rank===1?"first":""} ${pop&&k===0?"pop":""}"><div class="rk disp">${x.rank}</div><div><div class="tn disp">${esc(x.name)}</div>${opts.detail?`<div class="sub ${cls(x.pl)}">Started ${inr(x.start)} · ${x.pl>=0?"+":""}${inr(x.pl)} (${pct2(x.ret)})${x.counted?"":" · no trades locked"}</div>`:""}</div><div class="val disp">${inr(x.final)}</div></div>`).join("");
   return `<div class="lb">${H}${R}</div>`;
 }
 
-let teamId=null, tab="trade", MY={alloc:{},submitted:false}, unsub=[], saveTimer=null, myDirty=false, busy=false;
+const fb=initializeApp(firebaseConfig), auth=getAuth(fb), db=getFirestore(fb);
+let teamId=null, tab="trade", unsub=[], busy=false, saveTimer=null, myDirty=false;
+let MY={r1:{alloc:{},submitted:false},r2:{alloc:{},submitted:false}}, CAP={};
 onAuthStateChanged(auth,async u=>{
   unsub.forEach(f=>f());unsub=[];teamId=null;
-  if(u){const local=(u.email||"").split("@")[0];
-    if(TEAM_IDS.includes(local)){teamId=local;listen()}else{await signOut(auth);return}}
+  if(u){const local=(u.email||"").split("@")[0];if(TEAM_IDS.includes(local)){teamId=local;listen()}else{await signOut(auth);return}}
   render();
 });
 function listen(){
-  unsub.push(onSnapshot(doc(db,"game/state"),s=>{G=Object.assign({phase:"setup",teamNames:{},timerEnd:null},s.data()||{});
-    if(G.phase!=="revealed"&&tab==="leader")tab="trade";safeRender()},()=>{}));
-  unsub.push(onSnapshot(doc(db,"public/results"),s=>{RES=Object.assign({rows:[],total:8},s.data()||{});safeRender()},()=>{}));
-  unsub.push(onSnapshot(doc(db,"portfolios",teamId),s=>{if(s.metadata.hasPendingWrites)return;const d=s.data()||{};
-    if(!myDirty)MY={alloc:d.alloc||{},submitted:!!d.submitted};else MY.submitted=!!d.submitted;safeRender()},()=>{}));
+  let lastRound=null;
+  unsub.push(onSnapshot(doc(db,"game/state"),s=>{G=normG(s.data());
+    if(lastRound!==null&&lastRound!==G.round){tab="trade";toast("Round "+G.round+" has started.")}lastRound=G.round;safeRender()},()=>{}));
+  unsub.push(onSnapshot(doc(db,"public/results"),s=>{RES=s.data()||{};safeRender()},()=>{}));
+  unsub.push(onSnapshot(doc(db,"capital",teamId),s=>{CAP=s.data()||{};safeRender()},()=>{}));
+  for(const rk of RK)unsub.push(onSnapshot(doc(db,"portfolios",teamId,"rounds",rk),s=>{if(s.metadata.hasPendingWrites)return;const d=s.data()||{};
+    if(!(myDirty&&rk===G.roundKey))MY[rk]={alloc:d.alloc||{},submitted:!!d.submitted};else MY[rk].submitted=!!d.submitted;safeRender()},()=>{}));
 }
-function validate(alloc){const errs=[];let sum=0;
-  for(const s of STOCKS){const a=Number(alloc[s.code]||0);if(a<0)errs.push(s.name+": amount can't be negative.");else if(a%STEP)errs.push(s.name+": use multiples of ₹1,000.");sum+=a}
-  if(sum>CAPITAL)errs.push("Invested "+inr(sum)+" is over ₹1,00,000. Reduce by "+inr(sum-CAPITAL)+".");return {errs,sum}}
-function saveMine(){myDirty=true;clearTimeout(saveTimer);
-  saveTimer=setTimeout(async()=>{try{await setDoc(doc(db,"portfolios",teamId),{alloc:MY.alloc,submitted:false,submittedAt:null})}catch(e){toast("Couldn't save. The market may be closed.")}myDirty=false},500)}
+const rk=()=>G.roundKey;
+const capital=()=>rk()==="r1"?START:(CAP.r2??null);
+function validate(alloc,cap){const errs=[];let sum=0;
+  for(const s of ROUNDS[rk()]){const a=Number(alloc[s.code]||0);if(a<0)errs.push(s.name+": amount can't be negative.");else if(a%STEP)errs.push(s.name+": use multiples of ₹1,000.");sum+=a}
+  if(sum>cap)errs.push("Invested "+inr(sum)+" is more than your "+inr(cap)+". Reduce by "+inr(sum-cap)+".");return {errs,sum}}
+function saveMine(){myDirty=true;clearTimeout(saveTimer);const k=rk(),body={alloc:MY[k].alloc,submitted:false,submittedAt:null};
+  saveTimer=setTimeout(async()=>{try{await setDoc(doc(db,"portfolios",teamId,"rounds",k),body)}catch(e){toast("Couldn't save. The market may be closed.")}myDirty=false},500)}
+const revealedRounds=()=>RK.filter(k=>RES[k]&&RES[k].revealed&&(RES[k].rows||[]).length);
 function render(){
   window.__started=true;
   $("#phase").className="phase "+G.phase;$("#phaseTxt").textContent=teamId?PHASE[G.phase]:"";
+  $("#rtag").textContent=teamId?"Round "+G.round:"";$("#rtag").style.display=teamId?"":"none";
   $("#who").innerHTML=teamId?`${esc(teamName(teamId))} · <button class="linkbtn" data-logout>Log out</button>`:"";
-  const tabs=teamId?[["trade","Trading desk"],["mine","My portfolio"],...(G.phase==="revealed"&&RES.rows.length?[["leader","Leaderboard"]]:[])]:[];
+  const tabs=teamId?[["trade","Trading desk"],["mine","My portfolio"],...(revealedRounds().length?[["leader","Leaderboard"]]:[])]:[];
+  if(!tabs.some(t=>t[0]===tab))tab="trade";
   $("#tabs").innerHTML=tabs.map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}</button>`).join("");
-  $("#app").innerHTML=!teamId?vLoginBox("Team login","Enter the access code your organizer gave your team."):({trade:vTrade,mine:vMine,leader:vLeader}[tab]||vTrade)();
+  $("#app").innerHTML=!teamId?vLoginBox("Team login","Enter the access code your organizer gave your team."):({trade:vTrade,mine:vMine,leader:vLeader}[tab])();
   tickClock();
 }
 function vTrade(){
-  const head=`<h2 class="disp">Trading desk</h2><p class="lead">Split ₹1,00,000 across any of the 20 stocks in steps of ₹1,000, then lock your trades. Anything you don't invest stays as cash.</p>`;
-  if(G.phase==="setup")return head+`<div class="notice">The market isn't open yet. Trading starts when the organizer opens the market.</div>`;
-  const locked=MY.submitted||G.phase!=="open";const {errs,sum}=validate(MY.alloc);
+  const k=rk(),cap=capital(),M=MY[k];
+  const head=`<h2 class="disp">Round ${G.round} trading desk</h2><p class="lead">${k==="r1"?"Split your ₹1,00,000 across this round's 10 stocks":"Your starting money for Round 2 is your Round 1 final value. Split it across this round's 10 new stocks"} in steps of ₹1,000, then lock your trades. Anything you don't invest stays as cash.</p>`;
+  if(cap===null)return head+`<div class="notice">Waiting for the organizer to set up Round 2.</div>`;
+  if(G.phase==="setup")return head+`<div class="notice">The market isn't open yet. Round ${G.round} trading starts when the organizer opens the market. Your starting money: <b>${inr(cap)}</b>.</div>`;
+  if(G.phase==="revealed")return head+`<div class="notice good">Round ${G.round} is over. ${revealedRounds().length?"Check the Leaderboard tab.":""}</div>`;
+  const locked=M.submitted||G.phase!=="open";const {errs,sum}=validate(M.alloc,cap);
   let note="";
-  if(MY.submitted)note=`<div class="notice good">Your trades are locked. No changes allowed.</div>`;
-  else if(G.phase!=="open")note=`<div class="notice bad">Market closed. Your team didn't lock trades, so the full ₹1,00,000 is held as cash.</div>`;
-  const rows=STOCKS.map(s=>{const a=Number(MY.alloc[s.code]||0);
+  if(M.submitted)note=`<div class="notice good">Your Round ${G.round} trades are locked. No changes allowed.</div>`;
+  else if(G.phase!=="open")note=`<div class="notice bad">Market closed. Your team didn't lock trades, so all ${inr(cap)} is held as cash this round.</div>`;
+  const rows=ROUNDS[k].map(s=>{const a=Number(M.alloc[s.code]||0);
     return `<div class="row"><div><span class="nm">${esc(s.name)}</span><div class="sec">${esc(s.sector)}</div></div>
     <div class="amt"><button data-dec="${s.code}" ${locked?"disabled":""} aria-label="Remove ₹1,000 from ${esc(s.name)}">−</button><label class="sr" for="a-${s.code}">Amount in ${esc(s.name)}</label><input id="a-${s.code}" inputmode="numeric" data-amt="${s.code}" value="${a||""}" placeholder="0" ${locked?"disabled":""} class="${a%STEP||a<0?"err":""}"><button data-inc="${s.code}" ${locked?"disabled":""} aria-label="Add ₹1,000 to ${esc(s.name)}">+</button></div></div>`}).join("");
-  const summary=`<aside class="summary"><div class="sec">Cash left</div><div class="big disp ${CAPITAL-sum<0?"down":""}">${inr(CAPITAL-sum)}</div>
-   <dl><dt>Starting capital</dt><dd>${inr(CAPITAL)}</dd><dt>Invested</dt><dd>${inr(sum)}</dd><dt>Stocks held</dt><dd>${STOCKS.filter(s=>MY.alloc[s.code]>0).length}</dd></dl>
+  const summary=`<aside class="summary"><div class="sec">Cash left</div><div class="big disp ${cap-sum<0?"down":""}">${inr(cap-sum)}</div>
+   <dl><dt>Starting money</dt><dd>${inr(cap)}</dd><dt>Invested</dt><dd>${inr(sum)}</dd><dt>Stocks held</dt><dd>${ROUNDS[k].filter(s=>M.alloc[s.code]>0).length}</dd></dl>
    ${errs.length?`<ul class="errs">${errs.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:""}
    ${locked?"":`<button class="btn green wide" data-submit ${errs.length?"disabled":""} style="margin-top:12px">Lock our trades</button><button class="btn ghost wide" data-clear style="margin-top:8px">Clear ticket</button>`}</aside>`;
   return head+note+`<div class="desk"><div class="rows">${rows}</div>${summary}</div>`;
 }
 function vMine(){
-  const held=STOCKS.filter(s=>MY.alloc[s.code]>0);let inv=0;held.forEach(s=>inv+=MY.alloc[s.code]);
-  const counts=MY.submitted;const cash=counts?CAPITAL-inv:CAPITAL;
-  return `<h2 class="disp">My portfolio</h2><p class="lead">${MY.submitted?"Your locked trades.":G.phase==="open"||G.phase==="setup"?"Not locked yet. Lock your trades on the Trading desk before the market closes.":"Your team didn't lock trades, so everything is held as cash."}</p>
+  const k=rk(),cap=capital(),M=MY[k];
+  if(cap===null)return `<h2 class="disp">My portfolio</h2><div class="notice">Waiting for the organizer to set up Round 2.</div>`;
+  const held=ROUNDS[k].filter(s=>M.alloc[s.code]>0);let inv=0;held.forEach(s=>inv+=M.alloc[s.code]);
+  const cash=M.submitted?cap-inv:cap;
+  return `<h2 class="disp">My portfolio · Round ${G.round}</h2><p class="lead">${M.submitted?"Your locked trades for this round.":G.phase==="open"||G.phase==="setup"?"Not locked yet. Lock your trades on the Trading desk before the market closes.":"Your team didn't lock trades this round, so everything is held as cash."}</p>
   <div class="pcard" style="max-width:560px"><div class="scroll"><table><thead><tr><th>Stock</th><th>Invested</th></tr></thead><tbody>
-  ${held.length?held.map(s=>`<tr><td>${esc(s.name)}${counts?"":` <span class="sec">(not locked)</span>`}</td><td>${inr(MY.alloc[s.code])}</td></tr>`).join(""):`<tr><td colspan="2" style="color:var(--muted)">No stocks yet.</td></tr>`}
-  <tr><td>Cash</td><td>${inr(cash)}</td></tr></tbody><tfoot><tr><td>Total</td><td>${inr(CAPITAL)}</td></tr></tfoot></table></div></div>`;
+  ${held.length?held.map(s=>`<tr><td>${esc(s.name)}${M.submitted?"":` <span class="sec">(not locked)</span>`}</td><td>${inr(M.alloc[s.code])}</td></tr>`).join(""):`<tr><td colspan="2" style="color:var(--muted)">No stocks yet.</td></tr>`}
+  <tr><td>Cash</td><td>${inr(cash)}</td></tr></tbody><tfoot><tr><td>Total</td><td>${inr(cap)}</td></tr></tfoot></table></div></div>`;
 }
-function vLeader(){return `<h2 class="disp">Leaderboard</h2><p class="lead">${RES.rows.length<RES.total?"Revealing from the bottom up.":"Final portfolio values after Round 1. These carry into Round 2."}</p>`+leaderRows(RES.rows,RES.total)}
+function vLeader(){
+  return revealedRounds().reverse().map(k=>{const r=RES[k];
+    const title=k==="r2"?"Final leaderboard · after Round 2":"Leaderboard · after Round 1";
+    const note=(r.rows||[]).length<(r.total||8)?"Revealing from the bottom up.":k==="r1"?"Final values after Round 1. These are each team's starting money for Round 2.":"Final standings for the competition.";
+    return `<section class="lbsec"><h2 class="disp">${title}</h2><p class="lead">${note}</p>${leaderRows(k,r.rows,r.total||8)}</section>`}).join("");
+}
 document.addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b||b.disabled)return;const d=b.dataset;
   if("login" in d){if(busy)return;const code=($("#code").value||"").trim().toUpperCase(),m=code.match(/^T([1-8])-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
@@ -306,18 +333,18 @@ document.addEventListener("click",async e=>{
     busy=true;b.disabled=true;try{await signInWithEmailAndPassword(auth,"team"+m[1]+"@"+EMAIL_DOMAIN,code)}catch(err){$("#lerr").textContent=err.code==="auth/too-many-requests"?"Too many tries. Wait a minute and try again.":"Code not recognised. Check it and try again.";b.disabled=false}busy=false;return}
   if("logout" in d){await signOut(auth);tab="trade";return}
   if(d.tab){tab=d.tab;render();return}
-  if(!teamId)return;
-  if(d.inc||d.dec){if(MY.submitted||G.phase!=="open")return;const c=d.inc||d.dec,a=Number(MY.alloc[c]||0);
-    const n=Math.max(0,Math.round(a/STEP)*STEP+(d.inc?STEP:-STEP));if(n)MY.alloc[c]=n;else delete MY.alloc[c];render();saveMine();return}
-  if("clear" in d){MY.alloc={};render();saveMine();return}
-  if("submit" in d){if(validate(MY.alloc).errs.length||G.phase!=="open")return;
-    if(!confirm("Lock your team's trades? They can't be changed after this."))return;clearTimeout(saveTimer);
-    try{await setDoc(doc(db,"portfolios",teamId),{alloc:MY.alloc,submitted:true,submittedAt:Date.now()});MY.submitted=true;myDirty=false;render();toast("Trades locked.")}
+  if(!teamId)return;const k=rk(),M=MY[k],cap=capital();
+  if(d.inc||d.dec){if(M.submitted||G.phase!=="open"||cap===null)return;const c=d.inc||d.dec,a=Number(M.alloc[c]||0);
+    const n=Math.max(0,Math.round(a/STEP)*STEP+(d.inc?STEP:-STEP));if(n)M.alloc[c]=n;else delete M.alloc[c];render();saveMine();return}
+  if("clear" in d){M.alloc={};render();saveMine();return}
+  if("submit" in d){if(cap===null||validate(M.alloc,cap).errs.length||G.phase!=="open")return;
+    if(!confirm("Lock your team's Round "+G.round+" trades? They can't be changed after this."))return;clearTimeout(saveTimer);
+    try{await setDoc(doc(db,"portfolios",teamId,"rounds",k),{alloc:M.alloc,submitted:true,submittedAt:Date.now()});M.submitted=true;myDirty=false;render();toast("Trades locked.")}
     catch(err){toast("Couldn't lock trades. The market may have closed.")}return}
 });
 document.addEventListener("change",e=>{const i=e.target,d=i.dataset;
-  if(d.amt&&teamId){if(MY.submitted||G.phase!=="open")return;const n=Math.round(Number(String(i.value).replace(/[^\d.-]/g,""))||0);
-    if(n)MY.alloc[d.amt]=n;else delete MY.alloc[d.amt];render();saveMine()}});
+  if(d.amt&&teamId){const M=MY[rk()];if(M.submitted||G.phase!=="open")return;const n=Math.round(Number(String(i.value).replace(/[^\d.-]/g,""))||0);
+    if(n)M.alloc[d.amt]=n;else delete M.alloc[d.amt];render();saveMine()}});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="code")$("[data-login]")?.click()});
 render();
 </script>
